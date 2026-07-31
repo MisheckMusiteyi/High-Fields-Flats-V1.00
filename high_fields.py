@@ -181,7 +181,7 @@ def get_active_houses():
         # Accept "Yes" (case-insensitive) or boolean True
         active_col = houses["Active"].astype(str).str.strip().str.lower()
         active = houses[active_col.isin(["true", "yes"])]
-        return active["House_Number"].tolist()
+        return active["Address"].tolist()
     return []
 
 # ---------- ADMIN DASHBOARD ----------
@@ -198,7 +198,7 @@ if st.session_state.role == "admin":
         with st.form("add_record", clear_on_submit=True):
             colA, colB = st.columns(2)
             with colA:
-                house = st.selectbox("House", get_active_houses())
+                house = st.selectbox("House Address", get_active_houses())
                 month_input = st.date_input("Month (select 1st day)", value=date.today().replace(day=1))
             with colB:
                 rent_received = st.number_input("Rent Received ($)", min_value=0.0, value=0.0, step=10.0)
@@ -221,9 +221,9 @@ if st.session_state.role == "admin":
             profit = rent_received + other_income - maintenance_input - it_input - other_expenses
             fixed_rent = 0
             if not houses_df.empty:
-                # Compare as strings in case Sheets returns House_Number with
+                # Compare as strings in case Sheets returns Address values with
                 # inconsistent types (e.g. int vs str) between sheets.
-                house_row = houses_df[houses_df["House_Number"].astype(str) == str(house)]
+                house_row = houses_df[houses_df["Address"].astype(str) == str(house)]
                 if not house_row.empty:
                     fixed_rent = house_row.iloc[0]["Fixed_Rent"]
             rent_owing = max(0, fixed_rent - rent_received)
@@ -235,10 +235,12 @@ if st.session_state.role == "admin":
                     st.error("Please select house and partner.")
                 else:
                     now = datetime.now()
-                    rec_id = f"REC-{month_input.strftime('%Y-%m')}-{house}-{now.strftime('%H%M')}"
+                    # house is now a full address, so slugify it for a clean Record_ID
+                    house_slug = "".join(c if c.isalnum() else "-" for c in house).strip("-")
+                    rec_id = f"REC-{month_input.strftime('%Y-%m')}-{house_slug}-{now.strftime('%H%M')}"
                     new_row = {
                         "Record_ID": rec_id,
-                        "House_Number": house,
+                        "Address": house,
                         "Month": month_input.strftime("%Y-%m-%d"),
                         "Rent_Received": rent_received,
                         "Receiving_Partner": receiving_partner,
@@ -297,12 +299,12 @@ if st.session_state.role == "admin":
     with tab3:
         st.subheader("All Records")
         if not records.empty:
-            house_filter = st.multiselect("Filter by House", options=records["House_Number"].unique())
+            house_filter = st.multiselect("Filter by Address", options=records["Address"].unique())
             partner_filter = st.multiselect("Filter by Receiving Partner", options=records["Receiving_Partner"].unique())
             date_range = st.date_input("Date Range", value=[])
             filtered = records.copy()
             if house_filter:
-                filtered = filtered[filtered["House_Number"].isin(house_filter)]
+                filtered = filtered[filtered["Address"].isin(house_filter)]
             if partner_filter:
                 filtered = filtered[filtered["Receiving_Partner"].isin(partner_filter)]
             if len(date_range) == 2:
@@ -378,7 +380,7 @@ elif st.session_state.role == "partner":
             col_filter1, col_filter2 = st.columns(2)
             with col_filter1:
                 house_choices = get_active_houses()
-                selected_house = st.selectbox("Select House", ["All"] + house_choices)
+                selected_house = st.selectbox("Select House Address", ["All"] + house_choices)
             with col_filter2:
                 if not records.empty:
                     min_date = records["Month"].min().date()
@@ -389,7 +391,7 @@ elif st.session_state.role == "partner":
 
             filtered = records.copy()
             if selected_house != "All":
-                filtered = filtered[filtered["House_Number"].astype(str) == str(selected_house)]
+                filtered = filtered[filtered["Address"].astype(str) == str(selected_house)]
             if len(date_range) == 2:
                 start, end = date_range
                 filtered = filtered[(filtered["Month"].dt.date >= start) & (filtered["Month"].dt.date <= end)]
@@ -427,7 +429,7 @@ elif st.session_state.role == "partner":
         if not records.empty:
             my_records = records[records["Receiving_Partner"] == st.session_state.name]
             if not my_records.empty:
-                st.dataframe(my_records[["Month", "House_Number", "Profit"]], use_container_width=True)
+                st.dataframe(my_records[["Month", "Address", "Profit"]], use_container_width=True)
                 total_my_profit = my_records["Profit"].sum()
                 st.markdown(f"**Total I've Received: ${total_my_profit:,.2f}**")
             else:
