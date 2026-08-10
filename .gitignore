@@ -1,0 +1,13 @@
+# Compiled Python files
+__pycache__/
+*.pyc
+
+# SQLite Database
+*.db
+
+# OS files
+.DS_Store
+
+# Uploaded files
+static/uploads/*
+!static/uploads/.gitkeep
