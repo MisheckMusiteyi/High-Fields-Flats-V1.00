@@ -5,6 +5,9 @@ __pycache__/
 # SQLite Database
 *.db
 
+# Secrets
+secrets.json
+
 # OS files
 .DS_Store
 
