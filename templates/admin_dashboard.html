@@ -1,0 +1,329 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard - High Fields Flats{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>ADMIN DASHBOARD</h1>
+    <p class="subtitle">High Fields Flats – Rental Tracker Overview & Management</p>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tabs">
+    <button class="tab-link active" onclick="openTab(event, 'overview')">Overview & KPIs</button>
+    <button class="tab-link" onclick="openTab(event, 'add-record')">Add Monthly Record</button>
+    <button class="tab-link" onclick="openTab(event, 'data-table')">Data Table & Download</button>
+</div>
+
+<!-- Tab 1: Overview & KPIs -->
+<div id="overview" class="tab-content default-open">
+    <div class="section-title">
+        <h2>Key Performance Indicators</h2>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <h3>Total Rent (All Time)</h3>
+            <div class="value">${{ "{:,.2f}".format(total_alltime_rent) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>Current Month Rent</h3>
+            <div class="value">${{ "{:,.2f}".format(current_rent) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>Total Profit (All Time)</h3>
+            <div class="value">${{ "{:,.2f}".format(total_profit_all) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>Current Month Profit</h3>
+            <div class="value">${{ "{:,.2f}".format(current_profit) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>Total Rent Owing</h3>
+            <div class="value font-bold text-error">${{ "{:,.2f}".format(total_owing_all) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>Maintenance (All Time)</h3>
+            <div class="value">${{ "{:,.2f}".format(maint_total) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>IT Subscriptions (All Time)</h3>
+            <div class="value">${{ "{:,.2f}".format(it_total) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>Other Income / Expenses</h3>
+            <div class="value">+${{ "{:,.2f}".format(other_inc_total) }} / -${{ "{:,.2f}".format(other_exp_total) }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab 2: Add Monthly Record -->
+<div id="add-record" class="tab-content" style="display:none;">
+    <div class="section-title">
+        <h2>Record New Month</h2>
+    </div>
+
+    <div class="card">
+        <form action="{{ url_for('add_record') }}" method="POST" class="form grid-2">
+            <div>
+                <div class="form-group">
+                    <label for="address">House Address *</label>
+                    <select id="address" name="address" required class="form-control" onchange="calculateFinancials()">
+                        <option value="" disabled selected>Select active house...</option>
+                        {% for h in active_houses %}
+                            <option value="{{ h.address }}" data-fixed-rent="{{ h.fixed_rent }}">{{ h.address }} (Fixed Rent: ${{ h.fixed_rent }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="month">Month (select any day in target month) *</label>
+                    <input type="date" id="month" name="month" required class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="rent_received">Rent Received ($) *</label>
+                    <input type="number" id="rent_received" name="rent_received" step="0.01" min="0" value="0.00" required class="form-control" oninput="calculateFinancials()">
+                </div>
+
+                <div class="form-group">
+                    <label for="receiving_partner">Receiving Partner *</label>
+                    <select id="receiving_partner" name="receiving_partner" required class="form-control">
+                        <option value="" disabled selected>Select receiving partner...</option>
+                        {% for p in partners %}
+                            <option value="{{ p.name }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <div class="form-group">
+                    <label for="other_income">Other Income ($)</label>
+                    <input type="number" id="other_income" name="other_income" step="0.01" min="0" value="0.00" class="form-control" oninput="calculateFinancials()">
+                </div>
+
+                <div class="form-group">
+                    <label for="other_expenses">Other Expenses ($)</label>
+                    <input type="number" id="other_expenses" name="other_expenses" step="0.01" min="0" value="0.00" class="form-control" oninput="calculateFinancials()">
+                </div>
+
+                <div class="form-group">
+                    <label for="maintenance">Maintenance (auto 20%)</label>
+                    <input type="number" id="maintenance" name="maintenance" step="0.01" readonly class="form-control bg-light">
+                </div>
+
+                <div class="form-group">
+                    <label for="it_subscription">IT Subscription (auto $20)</label>
+                    <input type="number" id="it_subscription" name="it_subscription" step="0.01" value="20.00" readonly class="form-control bg-light">
+                </div>
+            </div>
+
+            <div class="grid-span-2 calculation-preview">
+                <div class="calculation-item">
+                    <strong>Calculated Rent Owing:</strong> <span id="rent_owing_preview">$0.00</span>
+                </div>
+                <div class="calculation-item">
+                    <strong>Calculated Profit:</strong> <span id="profit_preview">$0.00</span>
+                </div>
+            </div>
+
+            <div class="grid-span-2 text-right" style="margin-top: 1rem;">
+                <button type="submit" class="btn btn-primary">Save Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tab 3: Data Table & Download -->
+<div id="data-table" class="tab-content" style="display:none;">
+    <div class="section-title">
+        <h2>All Monthly Records</h2>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card filter-card">
+        <form method="GET" action="{{ url_for('admin_dashboard') }}" class="grid-4 form">
+            <input type="hidden" name="active_tab" value="data-table">
+
+            <div class="form-group">
+                <label for="house_filter">Filter by Address</label>
+                <select id="house_filter" name="house_filter" class="form-control">
+                    <option value="">All Houses</option>
+                    {% for h in active_houses %}
+                        <option value="{{ h.address }}" {% if house_filter == h.address %}selected{% endif %}>{{ h.address }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="partner_filter">Filter by Partner</label>
+                <select id="partner_filter" name="partner_filter" class="form-control">
+                    <option value="">All Partners</option>
+                    {% for p in partners %}
+                        <option value="{{ p.name }}" {% if partner_filter == p.name %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="start_date">Start Month</label>
+                <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="end_date">End Month</label>
+                <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
+            </div>
+
+            <div class="grid-span-4 text-right">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline" style="margin-right: 0.5rem;">Reset Filters</a>
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+            </div>
+        </form>
+    </div>
+
+    <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+        <span class="text-muted">Showing {{ records|length }} record(s)</span>
+        <a href="{{ url_for('download_csv', house_filter=house_filter, partner_filter=partner_filter, start_date=start_date, end_date=end_date) }}" class="btn btn-outline">Download CSV</a>
+    </div>
+
+    <!-- Table Wrapper -->
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Record ID</th>
+                    <th>Address</th>
+                    <th>Month</th>
+                    <th>Rent Received</th>
+                    <th>Receiving Partner</th>
+                    <th>Maintenance</th>
+                    <th>IT Sub.</th>
+                    <th>Other Income</th>
+                    <th>Other Expenses</th>
+                    <th>Profit</th>
+                    <th>Rent Owing</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if records %}
+                    {% for r in records %}
+                        <tr>
+                            <td><code>{{ r.record_id }}</code></td>
+                            <td>{{ r.address }}</td>
+                            <td>{{ r.month }}</td>
+                            <td>${{ "{:,.2f}".format(r.rent_received) }}</td>
+                            <td>{{ r.receiving_partner }}</td>
+                            <td>${{ "{:,.2f}".format(r.maintenance) }}</td>
+                            <td>${{ "{:,.2f}".format(r.it_subscription) }}</td>
+                            <td>${{ "{:,.2f}".format(r.other_income) }}</td>
+                            <td>${{ "{:,.2f}".format(r.other_expenses) }}</td>
+                            <td class="font-bold {% if r.profit >= 0 %}text-success{% else %}text-error{% endif %}">${{ "{:,.2f}".format(r.profit) }}</td>
+                            <td class="{% if r.rent_owing > 0 %}text-error font-bold{% endif %}">${{ "{:,.2f}".format(r.rent_owing) }}</td>
+                            <td><small class="text-muted">{{ r.timestamp }}</small></td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="12" class="text-center text-muted">No records match filter criteria.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Tab switching logic
+    function openTab(evt, tabName) {
+        var i, tabContent, tabLinks;
+        tabContent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabContent.length; i++) {
+            tabContent[i].style.display = "none";
+        }
+        tabLinks = document.getElementsByClassName("tab-link");
+        for (i = 0; i < tabLinks.length; i++) {
+            tabLinks[i].className = tabLinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        if (evt) {
+            evt.currentTarget.className += " active";
+        } else {
+            // activate matching button
+            var buttons = document.getElementsByClassName("tab-link");
+            for (var b = 0; b < buttons.length; b++) {
+                if (buttons[b].getAttribute("onclick").indexOf(tabName) !== -1) {
+                    buttons[b].className += " active";
+                }
+            }
+        }
+
+        // Save current tab in URL search params to persist on reload
+        const url = new URL(window.location);
+        url.searchParams.set('active_tab', tabName);
+        window.history.pushState({}, '', url);
+    }
+
+    // Auto-calculate on addition form
+    function calculateFinancials() {
+        const addressSelect = document.getElementById('address');
+        const rentInput = document.getElementById('rent_received');
+        const otherIncInput = document.getElementById('other_income');
+        const otherExpInput = document.getElementById('other_expenses');
+
+        const rentReceived = parseFloat(rentInput.value) || 0.0;
+        const otherIncome = parseFloat(otherIncInput.value) || 0.0;
+        const otherExpenses = parseFloat(otherExpInput.value) || 0.0;
+
+        // Maintenance 20%
+        const maintenance = Math.round(rentReceived * 0.2 * 100) / 100;
+        document.getElementById('maintenance').value = maintenance.toFixed(2);
+
+        // IT Subscription 20
+        const itSub = 20.00;
+        document.getElementById('it_subscription').value = itSub.toFixed(2);
+
+        // Fixed Rent for Rent Owing calculation
+        let fixedRent = 0.0;
+        if (addressSelect.selectedIndex > 0) {
+            const selectedOption = addressSelect.options[addressSelect.selectedIndex];
+            fixedRent = parseFloat(selectedOption.getAttribute('data-fixed-rent')) || 0.0;
+        }
+        const rentOwing = Math.max(0.0, fixedRent - rentReceived);
+        document.getElementById('rent_owing_preview').innerText = '$' + rentOwing.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (rentOwing > 0) {
+            document.getElementById('rent_owing_preview').className = 'text-error font-bold';
+        } else {
+            document.getElementById('rent_owing_preview').className = '';
+        }
+
+        // Profit calculation
+        const profit = rentReceived + otherIncome - maintenance - itSub - otherExpenses;
+        document.getElementById('profit_preview').innerText = '$' + profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (profit >= 0) {
+            document.getElementById('profit_preview').className = 'text-success font-bold';
+        } else {
+            document.getElementById('profit_preview').className = 'text-error font-bold';
+        }
+    }
+
+    // Check URL query param to open correct tab on page load
+    window.addEventListener('DOMContentLoaded', () => {
+        // Set default month to first of current month
+        const today = new Date();
+        const firstOfCurrentMonth = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-01';
+        document.getElementById('month').value = firstOfCurrentMonth;
+
+        const params = new URLSearchParams(window.location.search);
+        const activeTab = params.get('active_tab');
+        if (activeTab && document.getElementById(activeTab)) {
+            openTab(null, activeTab);
+        } else {
+            openTab(null, 'overview');
+        }
+        calculateFinancials();
+    });
+</script>
+{% endblock %}

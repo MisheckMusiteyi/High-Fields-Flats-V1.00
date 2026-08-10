@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+
+{% block title %}Partner Dashboard - High Fields Flats{% endblock %}
+
+{% block content %}
+<div class="dashboard-header partner-header-layout">
+    <div>
+        <h1>WELCOME, {{ session.get('name')|upper }}</h1>
+        <p class="subtitle">Partner Dashboard – Rental & Financial Overview</p>
+    </div>
+    {% if partner_profile.photo_url %}
+        <div class="header-photo-wrapper">
+            <img src="{{ partner_profile.photo_url }}" alt="Profile Photo" class="header-profile-img">
+        </div>
+    {% else %}
+        <div class="header-photo-wrapper">
+            <div class="header-profile-img-placeholder">NO PHOTO</div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Tab Navigation -->
+<div class="tabs">
+    <button class="tab-link active" onclick="openTab(event, 'financials')">My Financials</button>
+    <button class="tab-link" onclick="openTab(event, 'rent-receipts')">My Rent Receipts</button>
+    <button class="tab-link" onclick="openTab(event, 'profile-settings')">Profile Settings</button>
+</div>
+
+<!-- Tab 1: My Financials -->
+<div id="financials" class="tab-content default-open">
+    <div class="section-title">
+        <h2>Financial Summary</h2>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card filter-card">
+        <form method="GET" action="{{ url_for('partner_dashboard') }}" class="grid-3 form">
+            <input type="hidden" name="active_tab" value="financials">
+
+            <div class="form-group">
+                <label for="house_filter">Filter by House Address</label>
+                <select id="house_filter" name="house_filter" class="form-control">
+                    <option value="">All Houses</option>
+                    {% for h in active_houses %}
+                        <option value="{{ h.address }}" {% if house_filter == h.address %}selected{% endif %}>{{ h.address }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="start_date">Start Month</label>
+                <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="end_date">End Month</label>
+                <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
+            </div>
+
+            <div class="grid-span-3 text-right">
+                <a href="{{ url_for('partner_dashboard') }}" class="btn btn-outline" style="margin-right: 0.5rem;">Reset Filters</a>
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Financial KPIs -->
+    <div class="kpi-grid" style="margin-bottom: 2rem;">
+        <div class="kpi-card">
+            <h3>Total Rent Received</h3>
+            <div class="value">${{ "{:,.2f}".format(total_rent) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>Total Profit</h3>
+            <div class="value">${{ "{:,.2f}".format(total_profit) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>My Received Rent</h3>
+            <div class="value font-bold text-success">${{ "{:,.2f}".format(my_receipts) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>Maintenance Costs</h3>
+            <div class="value">${{ "{:,.2f}".format(total_maint) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>IT Subscriptions</h3>
+            <div class="value">${{ "{:,.2f}".format(total_it) }}</div>
+        </div>
+        <div class="kpi-card">
+            <h3>Other Income / Expenses</h3>
+            <div class="value">+${{ "{:,.2f}".format(total_other_in) }} / -${{ "{:,.2f}".format(total_other_ex) }}</div>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+        <span class="text-muted">Showing {{ records|length }} record(s)</span>
+        <a href="{{ url_for('download_csv', house_filter=house_filter, start_date=start_date, end_date=end_date) }}" class="btn btn-outline">Download My Data</a>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Record ID</th>
+                    <th>Address</th>
+                    <th>Month</th>
+                    <th>Rent Received</th>
+                    <th>Receiving Partner</th>
+                    <th>Maintenance</th>
+                    <th>IT Sub.</th>
+                    <th>Other Income</th>
+                    <th>Other Expenses</th>
+                    <th>Profit</th>
+                    <th>Rent Owing</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if records %}
+                    {% for r in records %}
+                        <tr>
+                            <td><code>{{ r.record_id }}</code></td>
+                            <td>{{ r.address }}</td>
+                            <td>{{ r.month }}</td>
+                            <td>${{ "{:,.2f}".format(r.rent_received) }}</td>
+                            <td>{{ r.receiving_partner }}</td>
+                            <td>${{ "{:,.2f}".format(r.maintenance) }}</td>
+                            <td>${{ "{:,.2f}".format(r.it_subscription) }}</td>
+                            <td>${{ "{:,.2f}".format(r.other_income) }}</td>
+                            <td>${{ "{:,.2f}".format(r.other_expenses) }}</td>
+                            <td class="font-bold {% if r.profit >= 0 %}text-success{% else %}text-error{% endif %}">${{ "{:,.2f}".format(r.profit) }}</td>
+                            <td class="{% if r.rent_owing > 0 %}text-error font-bold{% endif %}">${{ "{:,.2f}".format(r.rent_owing) }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="11" class="text-center text-muted">No records match filter criteria.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Tab 2: My Rent Receipts -->
+<div id="rent-receipts" class="tab-content" style="display:none;">
+    <div class="section-title">
+        <h2>Months Where I Received Rent</h2>
+    </div>
+
+    <div class="table-wrapper" style="margin-bottom: 1.5rem;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Address</th>
+                    <th>Profit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if my_records %}
+                    {% for r in my_records %}
+                        <tr>
+                            <td>{{ r.month }}</td>
+                            <td>{{ r.address }}</td>
+                            <td class="font-bold text-success">${{ "{:,.2f}".format(r.profit) }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center text-muted">No rent receipts assigned to you yet.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card bg-light text-right">
+        <h3 style="margin: 0;">Total Received: <span class="text-success font-bold">${{ "{:,.2f}".format(my_receipts) }}</span></h3>
+    </div>
+</div>
+
+<!-- Tab 3: Profile Settings -->
+<div id="profile-settings" class="tab-content" style="display:none;">
+    <div class="section-title">
+        <h2>Update Profile</h2>
+    </div>
+
+    <div class="card">
+        <form action="{{ url_for('update_profile') }}" method="POST" enctype="multipart/form-data" class="form grid-2">
+            <div>
+                <div class="form-group">
+                    <label for="current_email">Current Email</label>
+                    <input type="text" id="current_email" value="{{ partner_profile.email }}" disabled class="form-control bg-light">
+                </div>
+
+                <div class="form-group">
+                    <label for="new_email">New Email Address (leave blank to keep)</label>
+                    <input type="email" id="new_email" name="new_email" placeholder="newemail@highfields.com" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="photo">Profile Photo</label>
+                    <input type="file" id="photo" name="photo" accept="image/*" class="form-control">
+                    <p class="help-block">Upload PNG, JPG, or JPEG profile image.</p>
+                </div>
+            </div>
+
+            <div>
+                <div class="form-group">
+                    <label for="current_pwd">Current Password *</label>
+                    <input type="password" id="current_pwd" name="current_pwd" required placeholder="Required to save changes" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="new_pwd">New Password (leave blank to keep)</label>
+                    <input type="password" id="new_pwd" name="new_pwd" placeholder="New strong password" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_pwd">Confirm New Password</label>
+                    <input type="password" id="confirm_pwd" name="confirm_pwd" placeholder="Confirm new password" class="form-control">
+                </div>
+            </div>
+
+            <div class="grid-span-2 text-right" style="margin-top: 1rem;">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Tab switching logic
+    function openTab(evt, tabName) {
+        var i, tabContent, tabLinks;
+        tabContent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabContent.length; i++) {
+            tabContent[i].style.display = "none";
+        }
+        tabLinks = document.getElementsByClassName("tab-link");
+        for (i = 0; i < tabLinks.length; i++) {
+            tabLinks[i].className = tabLinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        if (evt) {
+            evt.currentTarget.className += " active";
+        } else {
+            var buttons = document.getElementsByClassName("tab-link");
+            for (var b = 0; b < buttons.length; b++) {
+                if (buttons[b].getAttribute("onclick").indexOf(tabName) !== -1) {
+                    buttons[b].className += " active";
+                }
+            }
+        }
+
+        const url = new URL(window.location);
+        url.searchParams.set('active_tab', tabName);
+        window.history.pushState({}, '', url);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const params = new URLSearchParams(window.location.search);
+        const activeTab = params.get('active_tab');
+        if (activeTab && document.getElementById(activeTab)) {
+            openTab(null, activeTab);
+        } else {
+            openTab(null, 'financials');
+        }
+    });
+</script>
+{% endblock %}

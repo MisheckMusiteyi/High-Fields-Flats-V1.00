@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - High Fields Flats{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="card login-card">
+        <h2 class="card-title text-center">LOGIN</h2>
+        <p class="text-center text-muted">Enter your credentials to access the rental tracker.</p>
+
+        <form action="{{ url_for('login_page') }}" method="POST" class="form">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required placeholder="name@highfields.com" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="••••••••" class="form-control">
+            </div>
+
+            <div class="form-group" style="margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
