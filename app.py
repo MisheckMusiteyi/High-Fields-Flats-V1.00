@@ -463,30 +463,47 @@ def login_page():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '').strip()
 
-        storage = get_storage()
+        try:
+            storage = get_storage()
+            # 1. Check Admins
+            admins = storage.get_admins()
+            admin = next((a for a in admins if str(a['email']).strip().lower() == email.lower()), None)
+            if admin and check_password(admin['password'], password):
+                session['email'] = email
+                session['role'] = 'admin'
+                session['name'] = 'Administrator'
+                session['photo_url'] = None
+                return redirect(url_for('admin_dashboard'))
 
-        # 1. Check Admins
-        admins = storage.get_admins()
-        admin = next((a for a in admins if str(a['email']).strip().lower() == email.lower()), None)
-        if admin and check_password(admin['password'], password):
-            session['email'] = email
-            session['role'] = 'admin'
-            session['name'] = 'Administrator'
-            session['photo_url'] = None
-            return redirect(url_for('admin_dashboard'))
+            # 2. Check Partners
+            partners = storage.get_partners()
+            partner = next((p for p in partners if str(p['email']).strip().lower() == email.lower()), None)
+            if partner and check_password(partner['password'], password):
+                session['email'] = email
+                session['role'] = 'partner'
+                session['name'] = partner['name']
+                session['photo_url'] = partner['photo_url']
+                return redirect(url_for('partner_dashboard'))
 
-        # 2. Check Partners
-        partners = storage.get_partners()
-        partner = next((p for p in partners if str(p['email']).strip().lower() == email.lower()), None)
-        if partner and check_password(partner['password'], password):
-            session['email'] = email
-            session['role'] = 'partner'
-            session['name'] = partner['name']
-            session['photo_url'] = partner['photo_url']
-            return redirect(url_for('partner_dashboard'))
+            flash("Invalid email or password.", "error")
+            return redirect(url_for('login_page'))
 
-        flash("Invalid email or password.", "error")
-        return redirect(url_for('login_page'))
+        except gspread.exceptions.SpreadsheetNotFound:
+            flash("Google Spreadsheet not found. Please double-check your Google Sheet ID in secrets.json/environment variables.", "error")
+            return redirect(url_for('login_page'))
+        except gspread.exceptions.APIError as e:
+            err_msg = str(e)
+            if "PERMISSION_DENIED" in err_msg or "403" in err_msg:
+                flash("Access Denied. Have you shared your Google Sheet with your service account email (high-fields-flats-tracker@high-fields-flats.iam.gserviceaccount.com) as an 'Editor'?", "error")
+            else:
+                flash(f"Google Sheets API Error: {err_msg}", "error")
+            return redirect(url_for('login_page'))
+        except gspread.exceptions.WorksheetNotFound as e:
+            flash(f"Worksheet tab not found. Please ensure tabs like 'Admin Logins' and 'Partners' exist in your Google Sheet.", "error")
+            return redirect(url_for('login_page'))
+        except Exception as e:
+            flash(f"Error connecting to storage backend: {e}", "error")
+            return redirect(url_for('login_page'))
 
     active_backend = "Google Sheets" if is_google_configured() else "Local SQLite Database"
     return render_template('login.html', active_backend=active_backend)
@@ -500,51 +517,72 @@ def logout():
 @app.route('/admin/dashboard')
 @login_required('admin')
 def admin_dashboard():
-    storage = get_storage()
+    try:
+        storage = get_storage()
 
-    active_houses = storage.get_active_houses()
-    partners = storage.get_partners()
+        active_houses = storage.get_active_houses()
+        partners = storage.get_partners()
 
-    house_filter = request.args.get('house_filter', '')
-    partner_filter = request.args.get('partner_filter', '')
-    start_date = request.args.get('start_date', '')
-    end_date = request.args.get('end_date', '')
+        house_filter = request.args.get('house_filter', '')
+        partner_filter = request.args.get('partner_filter', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
 
-    records = storage.get_monthly_records(house_filter, partner_filter, start_date, end_date)
+        records = storage.get_monthly_records(house_filter, partner_filter, start_date, end_date)
 
-    total_alltime_rent = sum(r['rent_received'] for r in records)
-    total_profit_all = sum(r['profit'] for r in records)
-    total_owing_all = sum(r['rent_owing'] for r in records)
-    maint_total = sum(r['maintenance'] for r in records)
-    it_total = sum(r['it_subscription'] for r in records)
-    other_inc_total = sum(r['other_income'] for r in records)
-    other_exp_total = sum(r['other_expenses'] for r in records)
+        total_alltime_rent = sum(r['rent_received'] for r in records)
+        total_profit_all = sum(r['profit'] for r in records)
+        total_owing_all = sum(r['rent_owing'] for r in records)
+        maint_total = sum(r['maintenance'] for r in records)
+        it_total = sum(r['it_subscription'] for r in records)
+        other_inc_total = sum(r['other_income'] for r in records)
+        other_exp_total = sum(r['other_expenses'] for r in records)
 
-    current_month_str = date.today().replace(day=1).strftime("%Y-%m-%d")
-    current_records = [r for r in records if r['month'] == current_month_str]
-    current_rent = sum(r['rent_received'] for r in current_records)
-    current_profit = sum(r['profit'] for r in current_records)
-    current_owing = sum(r['rent_owing'] for r in current_records)
+        current_month_str = date.today().replace(day=1).strftime("%Y-%m-%d")
+        current_records = [r for r in records if r['month'] == current_month_str]
+        current_rent = sum(r['rent_received'] for r in current_records)
+        current_profit = sum(r['profit'] for r in current_records)
+        current_owing = sum(r['rent_owing'] for r in current_records)
 
-    return render_template('admin_dashboard.html',
-                           active_houses=active_houses,
-                           partners=partners,
-                           records=records,
-                           house_filter=house_filter,
-                           partner_filter=partner_filter,
-                           start_date=start_date,
-                           end_date=end_date,
-                           total_alltime_rent=total_alltime_rent,
-                           total_profit_all=total_profit_all,
-                           total_owing_all=total_owing_all,
-                           maint_total=maint_total,
-                           it_total=it_total,
-                           other_inc_total=other_inc_total,
-                           other_exp_total=other_exp_total,
-                           current_rent=current_rent,
-                           current_profit=current_profit,
-                           current_owing=current_owing,
-                           active_backend="Google Sheets" if is_google_configured() else "Local SQLite")
+        return render_template('admin_dashboard.html',
+                               active_houses=active_houses,
+                               partners=partners,
+                               records=records,
+                               house_filter=house_filter,
+                               partner_filter=partner_filter,
+                               start_date=start_date,
+                               end_date=end_date,
+                               total_alltime_rent=total_alltime_rent,
+                               total_profit_all=total_profit_all,
+                               total_owing_all=total_owing_all,
+                               maint_total=maint_total,
+                               it_total=it_total,
+                               other_inc_total=other_inc_total,
+                               other_exp_total=other_exp_total,
+                               current_rent=current_rent,
+                               current_profit=current_profit,
+                               current_owing=current_owing,
+                               active_backend="Google Sheets" if is_google_configured() else "Local SQLite")
+    except gspread.exceptions.SpreadsheetNotFound:
+        flash("Google Spreadsheet not found. Please double-check your Google Sheet ID in secrets.json/environment variables.", "error")
+        session.clear()
+        return redirect(url_for('login_page'))
+    except gspread.exceptions.APIError as e:
+        err_msg = str(e)
+        if "PERMISSION_DENIED" in err_msg or "403" in err_msg:
+            flash("Access Denied. Have you shared your Google Sheet with your service account email (high-fields-flats-tracker@high-fields-flats.iam.gserviceaccount.com) as an 'Editor'?", "error")
+        else:
+            flash(f"Google Sheets API Error: {err_msg}", "error")
+        session.clear()
+        return redirect(url_for('login_page'))
+    except gspread.exceptions.WorksheetNotFound as e:
+        flash(f"Worksheet tab not found. Please ensure all tabs like 'Admin Logins', 'Partners', 'Houses' and 'MonthlyRecords' exist.", "error")
+        session.clear()
+        return redirect(url_for('login_page'))
+    except Exception as e:
+        flash(f"Error connecting to storage backend: {e}", "error")
+        session.clear()
+        return redirect(url_for('login_page'))
 
 @app.route('/admin/add_record', methods=['POST'])
 @login_required('admin')
@@ -586,46 +624,67 @@ def add_record():
 @app.route('/partner/dashboard')
 @login_required('partner')
 def partner_dashboard():
-    storage = get_storage()
+    try:
+        storage = get_storage()
 
-    partner_name = session.get('name')
-    active_houses = storage.get_active_houses()
+        partner_name = session.get('name')
+        active_houses = storage.get_active_houses()
 
-    house_filter = request.args.get('house_filter', '')
-    start_date = request.args.get('start_date', '')
-    end_date = request.args.get('end_date', '')
+        house_filter = request.args.get('house_filter', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
 
-    records = storage.get_monthly_records(house_filter, None, start_date, end_date)
+        records = storage.get_monthly_records(house_filter, None, start_date, end_date)
 
-    total_rent = sum(r['rent_received'] for r in records)
-    total_profit = sum(r['profit'] for r in records)
-    total_maint = sum(r['maintenance'] for r in records)
-    total_it = sum(r['it_subscription'] for r in records)
-    total_other_in = sum(r['other_income'] for r in records)
-    total_other_ex = sum(r['other_expenses'] for r in records)
+        total_rent = sum(r['rent_received'] for r in records)
+        total_profit = sum(r['profit'] for r in records)
+        total_maint = sum(r['maintenance'] for r in records)
+        total_it = sum(r['it_subscription'] for r in records)
+        total_other_in = sum(r['other_income'] for r in records)
+        total_other_ex = sum(r['other_expenses'] for r in records)
 
-    my_receipts = sum(r['profit'] for r in records if r['receiving_partner'] == partner_name)
-    my_records = [r for r in records if r['receiving_partner'] == partner_name]
+        my_receipts = sum(r['profit'] for r in records if r['receiving_partner'] == partner_name)
+        my_records = [r for r in records if r['receiving_partner'] == partner_name]
 
-    partners = storage.get_partners()
-    partner_profile = next((p for p in partners if str(p['email']).strip().lower() == session.get('email').lower()), None)
+        partners = storage.get_partners()
+        partner_profile = next((p for p in partners if str(p['email']).strip().lower() == session.get('email').lower()), None)
 
-    return render_template('partner_dashboard.html',
-                           active_houses=active_houses,
-                           records=records,
-                           my_records=my_records,
-                           house_filter=house_filter,
-                           start_date=start_date,
-                           end_date=end_date,
-                           total_rent=total_rent,
-                           total_profit=total_profit,
-                           total_maint=total_maint,
-                           total_it=total_it,
-                           total_other_in=total_other_in,
-                           total_other_ex=total_other_ex,
-                           my_receipts=my_receipts,
-                           partner_profile=partner_profile,
-                           active_backend="Google Sheets" if is_google_configured() else "Local SQLite")
+        return render_template('partner_dashboard.html',
+                               active_houses=active_houses,
+                               records=records,
+                               my_records=my_records,
+                               house_filter=house_filter,
+                               start_date=start_date,
+                               end_date=end_date,
+                               total_rent=total_rent,
+                               total_profit=total_profit,
+                               total_maint=total_maint,
+                               total_it=total_it,
+                               total_other_in=total_other_in,
+                               total_other_ex=total_other_ex,
+                               my_receipts=my_receipts,
+                               partner_profile=partner_profile,
+                               active_backend="Google Sheets" if is_google_configured() else "Local SQLite")
+    except gspread.exceptions.SpreadsheetNotFound:
+        flash("Google Spreadsheet not found. Please double-check your Google Sheet ID in secrets.json/environment variables.", "error")
+        session.clear()
+        return redirect(url_for('login_page'))
+    except gspread.exceptions.APIError as e:
+        err_msg = str(e)
+        if "PERMISSION_DENIED" in err_msg or "403" in err_msg:
+            flash("Access Denied. Have you shared your Google Sheet with your service account email (high-fields-flats-tracker@high-fields-flats.iam.gserviceaccount.com) as an 'Editor'?", "error")
+        else:
+            flash(f"Google Sheets API Error: {err_msg}", "error")
+        session.clear()
+        return redirect(url_for('login_page'))
+    except gspread.exceptions.WorksheetNotFound as e:
+        flash(f"Worksheet tab not found. Please ensure all tabs like 'Admin Logins', 'Partners', 'Houses' and 'MonthlyRecords' exist.", "error")
+        session.clear()
+        return redirect(url_for('login_page'))
+    except Exception as e:
+        flash(f"Error connecting to storage backend: {e}", "error")
+        session.clear()
+        return redirect(url_for('login_page'))
 
 @app.route('/partner/update_profile', methods=['POST'])
 @login_required('partner')
