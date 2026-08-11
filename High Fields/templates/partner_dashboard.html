@@ -8,7 +8,7 @@
         <h1>WELCOME, {{ session.get('name')|upper }}</h1>
         <p class="subtitle">Partner Dashboard – Rental & Financial Overview</p>
     </div>
-    {% if partner_profile.photo_url %}
+    {% if partner_profile and partner_profile.photo_url %}
         <div class="header-photo-wrapper">
             <img src="{{ partner_profile.photo_url }}" alt="Profile Photo" class="header-profile-img">
         </div>
@@ -190,7 +190,7 @@
             <div>
                 <div class="form-group">
                     <label for="current_email">Current Email</label>
-                    <input type="text" id="current_email" value="{{ partner_profile.email }}" disabled class="form-control bg-light">
+                    <input type="text" id="current_email" value="{{ partner_profile.email if partner_profile else '' }}" disabled class="form-control bg-light">
                 </div>
 
                 <div class="form-group">

@@ -46,7 +46,7 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         cursor = conn.cursor()
 
         # Check admin user
-        cursor.execute("SELECT * FROM admins WHERE email = ?", ("admin@highfields.com",))
+        cursor.execute("SELECT * FROM admins WHERE email = ?", ("admin",))
         admin = cursor.fetchone()
         self.assertIsNotNone(admin)
 
@@ -73,7 +73,7 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         """Test successful and unsuccessful authentication flows in SQLite mode."""
         # 1. Test Admin Login
         response = self.client.post('/login', data={
-            'email': 'admin@highfields.com',
+            'email': 'admin',
             'password': 'admin123'
         }, follow_redirects=True)
         self.assertIn(b'ADMIN DASHBOARD', response.data)
@@ -84,14 +84,14 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         # 3. Test Partner Login
         response = self.client.post('/login', data={
-            'email': 'partner1@highfields.com',
+            'email': 'partner1',
             'password': 'partner123'
         }, follow_redirects=True)
         self.assertIn(b'WELCOME, PARTNER ONE', response.data)
 
         # 4. Test Invalid Login
         response = self.client.post('/login', data={
-            'email': 'admin@highfields.com',
+            'email': 'admin',
             'password': 'wrong_password'
         }, follow_redirects=True)
         self.assertIn(b'Invalid email or password.', response.data)
@@ -113,7 +113,7 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
     def test_admin_add_record_calculations_sqlite(self):
         """Test record addition by admin and its associated calculations in SQLite mode."""
         # Log in as admin first
-        self.login_helper('admin@highfields.com', 'admin123')
+        self.login_helper('admin', 'admin123')
 
         response = self.client.post('/admin/add_record', data={
             'address': '123 High Fields St',
@@ -148,10 +148,10 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
     def test_partner_profile_update_sqlite(self):
         """Test that partners can update their profile emails, passwords, and photos in SQLite mode."""
-        self.login_helper('partner1@highfields.com', 'partner123')
+        self.login_helper('partner1', 'partner123')
 
         response = self.client.post('/partner/update_profile', data={
-            'new_email': 'updated_partner1@highfields.com',
+            'new_email': 'updated_partner1',
             'current_pwd': 'partner123',
             'new_pwd': 'newpassword123',
             'confirm_pwd': 'newpassword123',
@@ -165,10 +165,10 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM partners WHERE email = ?", ('partner1@highfields.com',))
+        cursor.execute("SELECT * FROM partners WHERE email = ?", ('partner1',))
         self.assertIsNone(cursor.fetchone())
 
-        cursor.execute("SELECT * FROM partners WHERE email = ?", ('updated_partner1@highfields.com',))
+        cursor.execute("SELECT * FROM partners WHERE email = ?", ('updated_partner1',))
         updated_partner = cursor.fetchone()
         self.assertIsNotNone(updated_partner)
         self.assertEqual(updated_partner['name'], 'Partner One')
@@ -179,7 +179,7 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
     def test_csv_export_sqlite(self):
         """Test downloading records as a CSV in SQLite mode."""
-        self.login_helper('admin@highfields.com', 'admin123')
+        self.login_helper('admin', 'admin123')
 
         response = self.client.get('/download_csv?house_filter=123+High+Fields+St')
         self.assertEqual(response.mimetype, 'text/csv')
@@ -209,10 +209,10 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         # Configure mock data
         mock_storage.get_admins.return_value = [
-            {'email': 'sheet_admin@highfields.com', 'password': generate_password_hash('sheet_admin123')}
+            {'email': 'sheet_admin', 'password': generate_password_hash('sheet_admin123')}
         ]
         mock_storage.get_partners.return_value = [
-            {'email': 'sheet_partner1@highfields.com', 'password': generate_password_hash('sheet_partner123'), 'name': 'Sheet Partner One', 'photo_url': ''}
+            {'email': 'sheet_partner1', 'password': generate_password_hash('sheet_partner123'), 'name': 'Sheet Partner One', 'photo_url': ''}
         ]
         mock_storage.get_active_houses.return_value = [
             {'address': 'Sheet House 1', 'fixed_rent': 1000.0, 'active': 1}
@@ -238,7 +238,7 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         # 1. Test Admin Login using mocked Google Sheets config
         response = self.client.post('/login', data={
-            'email': 'sheet_admin@highfields.com',
+            'email': 'sheet_admin',
             'password': 'sheet_admin123'
         }, follow_redirects=True)
         self.assertIn(b'ADMIN DASHBOARD', response.data)

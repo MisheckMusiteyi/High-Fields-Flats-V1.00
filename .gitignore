@@ -1,3 +1,6 @@
+# Secrets
+secrets.json
+
 # Compiled Python files
 __pycache__/
 *.pyc
@@ -5,12 +8,8 @@ __pycache__/
 # SQLite Database
 *.db
 
-# Secrets
-secrets.json
+# Flask log
+flask_app.log
 
-# OS files
-.DS_Store
-
-# Uploaded files
-static/uploads/*
-!static/uploads/.gitkeep
+# Uploaded partner avatars
+static/uploads/

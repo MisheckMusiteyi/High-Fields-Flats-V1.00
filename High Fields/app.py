@@ -401,11 +401,11 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM admins")
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO admins (email, password) VALUES (?, ?)",
-                       ("admin@highfields.com", generate_password_hash("admin123")))
+                       ("admin", generate_password_hash("admin123")))
         cursor.execute("INSERT INTO partners (email, password, name, photo_url) VALUES (?, ?, ?, ?)",
-                       ("partner1@highfields.com", generate_password_hash("partner123"), "Partner One", ""))
+                       ("partner1", generate_password_hash("partner123"), "Partner One", ""))
         cursor.execute("INSERT INTO partners (email, password, name, photo_url) VALUES (?, ?, ?, ?)",
-                       ("partner2@highfields.com", generate_password_hash("partner223"), "Partner Two", ""))
+                       ("partner2", generate_password_hash("partner223"), "Partner Two", ""))
         cursor.execute("INSERT INTO houses (address, fixed_rent, active) VALUES (?, ?, ?)",
                        ("123 High Fields St", 1200.0, 1))
         cursor.execute("INSERT INTO houses (address, fixed_rent, active) VALUES (?, ?, ?)",
