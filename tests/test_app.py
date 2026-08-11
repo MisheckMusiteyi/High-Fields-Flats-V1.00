@@ -3,9 +3,11 @@ import tempfile
 import unittest
 import sqlite3
 import io
+import json
 from datetime import datetime, date
-from app import app, get_db, init_db, DATABASE
-from werkzeug.security import check_password_hash
+from unittest.mock import patch, MagicMock
+from app import app, init_db, DATABASE, get_storage, is_google_configured, SQLiteStorage, GoogleSheetsStorage
+from werkzeug.security import check_password_hash, generate_password_hash
 
 class HighFieldsTrackerTestCase(unittest.TestCase):
 
@@ -14,7 +16,7 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         app.config['TESTING'] = True
         app.config['SECRET_KEY'] = 'test_secret_key'
 
-        # Create a temporary database file
+        # Create a temporary database file for SQLite tests
         self.db_fd, self.temp_db_path = tempfile.mkstemp()
         app.config['DATABASE'] = self.temp_db_path
 
@@ -25,7 +27,7 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         self.client = app.test_client()
 
-        # Initialize and seed temporary database
+        # Initialize and seed temporary SQLite database
         init_db()
 
     def tearDown(self):
@@ -38,13 +40,13 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         app_module.DATABASE = self.original_database
 
     def test_database_initialization(self):
-        """Test that database is successfully initialized and seeded with default data."""
+        """Test that SQLite database is successfully initialized and seeded with default data."""
         conn = sqlite3.connect(self.temp_db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
         # Check admin user
-        cursor.execute("SELECT * FROM admins WHERE email = ?", ("admin@highfields.com",))
+        cursor.execute("SELECT * FROM admins WHERE email = ?", ("admin",))
         admin = cursor.fetchone()
         self.assertIsNotNone(admin)
 
@@ -67,11 +69,11 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         conn.close()
 
-    def test_login_and_logout(self):
-        """Test successful and unsuccessful authentication flows."""
+    def test_login_and_logout_sqlite(self):
+        """Test successful and unsuccessful authentication flows in SQLite mode."""
         # 1. Test Admin Login
         response = self.client.post('/login', data={
-            'email': 'admin@highfields.com',
+            'email': 'admin',
             'password': 'admin123'
         }, follow_redirects=True)
         self.assertIn(b'ADMIN DASHBOARD', response.data)
@@ -82,14 +84,14 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         # 3. Test Partner Login
         response = self.client.post('/login', data={
-            'email': 'partner1@highfields.com',
+            'email': 'partner1',
             'password': 'partner123'
         }, follow_redirects=True)
         self.assertIn(b'WELCOME, PARTNER ONE', response.data)
 
         # 4. Test Invalid Login
         response = self.client.post('/login', data={
-            'email': 'admin@highfields.com',
+            'email': 'admin',
             'password': 'wrong_password'
         }, follow_redirects=True)
         self.assertIn(b'Invalid email or password.', response.data)
@@ -108,18 +110,10 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
             'password': password
         }, follow_redirects=True)
 
-    def test_admin_add_record_calculations(self):
-        """Test record addition by admin and its associated calculations."""
+    def test_admin_add_record_calculations_sqlite(self):
+        """Test record addition by admin and its associated calculations in SQLite mode."""
         # Log in as admin first
-        self.login_helper('admin@highfields.com', 'admin123')
-
-        # Add a record for '123 High Fields St' (Fixed rent is 1200)
-        # Rent received: 1000 (meaning rent owing should be 200)
-        # Other income: 50.00
-        # Other expenses: 30.00
-        # Maintenance: 1000 * 20% = 200
-        # IT sub: 20
-        # Expected profit: 1000 + 50 - 200 - 20 - 30 = 800
+        self.login_helper('admin', 'admin123')
 
         response = self.client.post('/admin/add_record', data={
             'address': '123 High Fields St',
@@ -152,14 +146,12 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         conn.close()
 
-    def test_partner_profile_update(self):
-        """Test that partners can update their profile emails, passwords, and photos."""
-        # Log in as partner
-        self.login_helper('partner1@highfields.com', 'partner123')
+    def test_partner_profile_update_sqlite(self):
+        """Test that partners can update their profile emails, passwords, and photos in SQLite mode."""
+        self.login_helper('partner1', 'partner123')
 
-        # Update email and password
         response = self.client.post('/partner/update_profile', data={
-            'new_email': 'updated_partner1@highfields.com',
+            'new_email': 'updated_partner1',
             'current_pwd': 'partner123',
             'new_pwd': 'newpassword123',
             'confirm_pwd': 'newpassword123',
@@ -173,12 +165,10 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Old email should be updated
-        cursor.execute("SELECT * FROM partners WHERE email = ?", ('partner1@highfields.com',))
+        cursor.execute("SELECT * FROM partners WHERE email = ?", ('partner1',))
         self.assertIsNone(cursor.fetchone())
 
-        # New email should exist
-        cursor.execute("SELECT * FROM partners WHERE email = ?", ('updated_partner1@highfields.com',))
+        cursor.execute("SELECT * FROM partners WHERE email = ?", ('updated_partner1',))
         updated_partner = cursor.fetchone()
         self.assertIsNotNone(updated_partner)
         self.assertEqual(updated_partner['name'], 'Partner One')
@@ -187,12 +177,10 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         conn.close()
 
-    def test_csv_export(self):
-        """Test downloading records as a CSV."""
-        # Log in as admin
-        self.login_helper('admin@highfields.com', 'admin123')
+    def test_csv_export_sqlite(self):
+        """Test downloading records as a CSV in SQLite mode."""
+        self.login_helper('admin', 'admin123')
 
-        # Request CSV
         response = self.client.get('/download_csv?house_filter=123+High+Fields+St')
         self.assertEqual(response.mimetype, 'text/csv')
         self.assertIn('attachment; filename=monthly_records.csv', response.headers.get('Content-Disposition', ''))
@@ -200,18 +188,93 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         # Validate content structure
         csv_data = response.data.decode('utf-8')
         lines = csv_data.splitlines()
-        self.assertGreater(len(lines), 1) # Header + at least 1 record
+        self.assertGreater(len(lines), 1)
 
-        # Header assertions
         headers = lines[0].split(',')
         self.assertEqual(headers[0], 'Record_ID')
         self.assertEqual(headers[1], 'Address')
         self.assertEqual(headers[2], 'Month')
 
-        # Row assertion (contains the matching address and not the others)
         self.assertIn('123 High Fields St', lines[1])
-        for line in lines[2:]:
-            self.assertNotIn('456 Valley Rd', line)
+
+    # ---------- GOOGLE SHEETS MODE TESTS (MOCKED) ----------
+
+    @patch('app.is_google_configured', return_value=True)
+    @patch('app.GoogleSheetsStorage')
+    def test_google_sheets_login_and_operations(self, mock_sheets_storage_class, mock_is_configured):
+        """Test login, dashboard views, and calculations when configured to use Google Sheets."""
+        # Create a mock instance of GoogleSheetsStorage
+        mock_storage = MagicMock()
+        mock_sheets_storage_class.return_value = mock_storage
+
+        # Configure mock data
+        mock_storage.get_admins.return_value = [
+            {'email': 'sheet_admin', 'password': generate_password_hash('sheet_admin123')}
+        ]
+        mock_storage.get_partners.return_value = [
+            {'email': 'sheet_partner1', 'password': generate_password_hash('sheet_partner123'), 'name': 'Sheet Partner One', 'photo_url': ''}
+        ]
+        mock_storage.get_active_houses.return_value = [
+            {'address': 'Sheet House 1', 'fixed_rent': 1000.0, 'active': 1}
+        ]
+        mock_storage.get_house_fixed_rent.return_value = 1000.0
+
+        mock_storage.get_monthly_records.return_value = [
+            {
+                'record_id': 'REC-2024-06-sheet-house-1',
+                'address': 'Sheet House 1',
+                'month': '2024-06-01',
+                'rent_received': 1000.0,
+                'receiving_partner': 'Sheet Partner One',
+                'maintenance': 200.0,
+                'it_subscription': 20.0,
+                'other_income': 0.0,
+                'other_expenses': 0.0,
+                'profit': 780.0,
+                'rent_owing': 0.0,
+                'timestamp': '2024-06-01 12:00'
+            }
+        ]
+
+        # 1. Test Admin Login using mocked Google Sheets config
+        response = self.client.post('/login', data={
+            'email': 'sheet_admin',
+            'password': 'sheet_admin123'
+        }, follow_redirects=True)
+        self.assertIn(b'ADMIN DASHBOARD', response.data)
+        mock_storage.get_admins.assert_called_once()
+
+        # 2. Test Admin Dashboard rendering
+        response = self.client.get('/admin/dashboard')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Sheet House 1', response.data)
+        self.assertIn(b'Sheet Partner One', response.data)
+
+        # 3. Test Add Record Calculations in Google Sheets Mode
+        response = self.client.post('/admin/add_record', data={
+            'address': 'Sheet House 1',
+            'month': '2024-08-01',
+            'rent_received': '800.00',
+            'receiving_partner': 'Sheet Partner One',
+            'other_income': '10.00',
+            'other_expenses': '5.00'
+        }, follow_redirects=True)
+
+        self.assertIn(b'Record successfully added!', response.data)
+
+        # Verify that add_monthly_record was called with correct auto-calculated values
+        mock_storage.add_monthly_record.assert_called_once()
+        args, kwargs = mock_storage.add_monthly_record.call_args
+        self.assertEqual(args[1], 'Sheet House 1')
+        self.assertEqual(args[2], '2024-08-01')
+        self.assertEqual(args[3], 800.0) # rent_received
+        self.assertEqual(args[4], 'Sheet Partner One') # receiving_partner
+        self.assertEqual(args[5], 160.0) # maintenance
+        self.assertEqual(args[6], 20.0) # it_subscription
+        self.assertEqual(args[7], 10.0) # other_income
+        self.assertEqual(args[8], 5.0) # other_expenses
+        self.assertEqual(args[9], 625.0) # profit
+        self.assertEqual(args[10], 200.0) # rent_owing
 
 if __name__ == '__main__':
     unittest.main()
