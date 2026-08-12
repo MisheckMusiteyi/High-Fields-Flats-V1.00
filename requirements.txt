@@ -6,3 +6,5 @@ google-auth
 google-api-python-client
 Pillow
 python-dateutil
+Flask
+gunicorn
