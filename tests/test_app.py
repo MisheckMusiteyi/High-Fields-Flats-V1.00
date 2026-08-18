@@ -112,7 +112,6 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
     def test_admin_add_record_calculations_sqlite(self):
         """Test record addition by admin and its associated calculations in SQLite mode."""
-        # Log in as admin first
         self.login_helper('admin', 'admin123')
 
         response = self.client.post('/admin/add_record', data={
@@ -126,7 +125,6 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         self.assertIn(b'Record successfully added!', response.data)
 
-        # Query database to assert values
         conn = sqlite3.connect(self.temp_db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -160,7 +158,6 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         self.assertIn(b'Profile updated successfully!', response.data)
 
-        # Verify in database
         conn = sqlite3.connect(self.temp_db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -185,7 +182,6 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         self.assertEqual(response.mimetype, 'text/csv')
         self.assertIn('attachment; filename=monthly_records.csv', response.headers.get('Content-Disposition', ''))
 
-        # Validate content structure
         csv_data = response.data.decode('utf-8')
         lines = csv_data.splitlines()
         self.assertGreater(len(lines), 1)
@@ -203,11 +199,9 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
     @patch('app.GoogleSheetsStorage')
     def test_google_sheets_login_and_operations(self, mock_sheets_storage_class, mock_is_configured):
         """Test login, dashboard views, and calculations when configured to use Google Sheets."""
-        # Create a mock instance of GoogleSheetsStorage
         mock_storage = MagicMock()
         mock_sheets_storage_class.return_value = mock_storage
 
-        # Configure mock data
         mock_storage.get_admins.return_value = [
             {'email': 'sheet_admin', 'password': generate_password_hash('sheet_admin123')}
         ]
@@ -262,7 +256,6 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
 
         self.assertIn(b'Record successfully added!', response.data)
 
-        # Verify that add_monthly_record was called with correct auto-calculated values
         mock_storage.add_monthly_record.assert_called_once()
         args, kwargs = mock_storage.add_monthly_record.call_args
         self.assertEqual(args[1], 'Sheet House 1')
@@ -275,6 +268,27 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         self.assertEqual(args[8], 5.0) # other_expenses
         self.assertEqual(args[9], 625.0) # profit
         self.assertEqual(args[10], 200.0) # rent_owing
+
+    @patch('app.is_google_configured', return_value=True)
+    @patch('app.GoogleSheetsStorage')
+    def test_partner_profile_update_google_sheets(self, mock_sheets_storage_class, mock_is_configured):
+        """Test partner profile photo upload in Google Sheets mode."""
+        mock_storage = MagicMock()
+        mock_sheets_storage_class.return_value = mock_storage
+        mock_storage.get_partners.return_value = [
+            {'email': 'sheet_partner1', 'password': generate_password_hash('sheet_partner123'), 'name': 'Sheet Partner One', 'photo_url': ''}
+        ]
+
+        # Login as partner
+        self.login_helper('sheet_partner1', 'sheet_partner123')
+
+        response = self.client.post('/partner/update_profile', data={
+            'current_pwd': 'sheet_partner123',
+            'photo': (io.BytesIO(b"dummy_photo_data"), 'avatar.png')
+        }, follow_redirects=True)
+
+        self.assertIn(b'Profile updated successfully!', response.data)
+        mock_storage.update_partner_profile.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
