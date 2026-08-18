@@ -63,6 +63,9 @@ def to_float_clean(val):
     except ValueError:
         return 0.0
 
+def hash_password_sha256(pwd):
+    return hashlib.sha256(str(pwd).encode()).hexdigest()
+
 def check_password(stored_hash, raw_pwd):
     """Compares password against stored hash. Supports clear-text, legacy SHA256, and secure Werkzeug hashes."""
     if stored_hash is None or stored_hash == "":
@@ -84,8 +87,7 @@ def check_password(stored_hash, raw_pwd):
 
     # 3. Try legacy SHA256 hash match
     try:
-        sha256_hash = hashlib.sha256(raw_pwd_str.encode()).hexdigest()
-        if sha256_hash == stored_str:
+        if hash_password_sha256(raw_pwd_str) == stored_str:
             return True
     except Exception:
         pass
@@ -247,7 +249,6 @@ class GoogleSheetsStorage:
         for h in houses:
             if h['address'] == address:
                 return h['fixed_rent']
-        # Check all houses including inactive just in case
         df = self.load_sheet("Houses")
         if not df.empty:
             match = df[df["Address"].astype(str).str.strip() == address]
@@ -494,7 +495,7 @@ def login_page():
         except gspread.exceptions.APIError as e:
             err_msg = str(e)
             if "PERMISSION_DENIED" in err_msg or "403" in err_msg:
-                flash("Access Denied. Have you shared your Google Sheet with your service account email (high-fields-flats-tracker@high-fields-flats.iam.gserviceaccount.com) as an 'Editor'?", "error")
+                flash("Access Denied. Have you shared your Google Sheet with your service account email as an 'Editor'?", "error")
             else:
                 flash(f"Google Sheets API Error: {err_msg}", "error")
             return redirect(url_for('login_page'))
@@ -570,7 +571,7 @@ def admin_dashboard():
     except gspread.exceptions.APIError as e:
         err_msg = str(e)
         if "PERMISSION_DENIED" in err_msg or "403" in err_msg:
-            flash("Access Denied. Have you shared your Google Sheet with your service account email (high-fields-flats-tracker@high-fields-flats.iam.gserviceaccount.com) as an 'Editor'?", "error")
+            flash("Access Denied. Have you shared your Google Sheet with your service account email as an 'Editor'?", "error")
         else:
             flash(f"Google Sheets API Error: {err_msg}", "error")
         session.clear()
@@ -672,7 +673,7 @@ def partner_dashboard():
     except gspread.exceptions.APIError as e:
         err_msg = str(e)
         if "PERMISSION_DENIED" in err_msg or "403" in err_msg:
-            flash("Access Denied. Have you shared your Google Sheet with your service account email (high-fields-flats-tracker@high-fields-flats.iam.gserviceaccount.com) as an 'Editor'?", "error")
+            flash("Access Denied. Have you shared your Google Sheet with your service account email as an 'Editor'?", "error")
         else:
             flash(f"Google Sheets API Error: {err_msg}", "error")
         session.clear()
@@ -722,35 +723,32 @@ def update_profile():
         session['email'] = new_email
 
     if new_pwd:
-        updates['password'] = generate_password_hash(new_pwd)
+        if is_google_configured():
+            updates['password'] = hash_password_sha256(new_pwd)
+        else:
+            updates['password'] = generate_password_hash(new_pwd)
 
     if photo_file and photo_file.filename != '':
         filename = secure_filename(photo_file.filename)
         unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
 
-        if isinstance(storage, GoogleSheetsStorage):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as tmp:
-                photo_file.save(tmp.name)
-                tmp_path = tmp.name
+        local_photo_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        photo_file.save(local_photo_path)
+        photo_url = f"/static/uploads/{unique_filename}"
+
+        if is_google_configured() and hasattr(storage, 'get_drive_service'):
             try:
                 drive_service = storage.get_drive_service()
                 file_metadata = {"name": f"photo_{session.get('email')}_{filename}"}
-                media = MediaFileUpload(tmp_path, mimetype="image/jpeg" if filename.lower().endswith(('.jpg', '.jpeg')) else "image/png")
+                media = MediaFileUpload(local_photo_path, mimetype="image/jpeg" if filename.lower().endswith(('.jpg', '.jpeg')) else "image/png")
                 file = drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
                 drive_service.permissions().create(fileId=file["id"], body={"type": "anyone", "role": "reader"}).execute()
                 photo_url = f"https://drive.google.com/uc?export=view&id={file['id']}"
-                updates['photo_url'] = photo_url
-                session['photo_url'] = photo_url
             except Exception as e:
-                flash(f"Failed to upload photo to Google Drive: {e}", "error")
-            finally:
-                os.unlink(tmp_path)
-        else:
-            photo_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-            photo_file.save(photo_path)
-            photo_url = f"/static/uploads/{unique_filename}"
-            updates['photo_url'] = photo_url
-            session['photo_url'] = photo_url
+                pass
+
+        updates['photo_url'] = photo_url
+        session['photo_url'] = photo_url
 
     if updates:
         try:
