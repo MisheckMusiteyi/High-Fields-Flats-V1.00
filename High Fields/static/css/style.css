@@ -451,7 +451,23 @@ a:hover { color: var(--primary-hover); }
 .kpi-icon .icon { width: 20px; height: 20px; }
 
 .kpi-card-wide { grid-column: span 2; }
+
+/* This Month: [Rent Collected x2][Maintenance][IT] / [Net Profit x3][Rent Owing] */
+.kpi-grid-month { grid-template-columns: repeat(4, 1fr); }
+.kpi-grid-month .kpi-card-net { grid-column: span 3; }
+
+@media (max-width: 1100px) {
+    /* [Rent Collected x2] / [Maintenance][IT] / [Net Profit x2] / [Rent Owing x2] */
+    .kpi-grid-month { grid-template-columns: repeat(2, 1fr); }
+    .kpi-grid-month .kpi-card-net,
+    .kpi-grid-month .kpi-card-owing { grid-column: span 2; }
+}
 .kpi-body { flex: 1; min-width: 0; }
+
+.kpi-card-highlight {
+    border-color: #a7f3d0;
+    background: linear-gradient(135deg, #ffffff 60%, #ecfdf5);
+}
 
 .value-sub {
     font-size: 0.85rem;
@@ -860,7 +876,8 @@ code {
     .grid-2, .grid-3, .grid-4, .calculation-preview { grid-template-columns: 1fr; }
     .grid-span-2, .grid-span-3, .grid-span-4 { grid-column: span 1; }
     .kpi-grid { grid-template-columns: 1fr; gap: 0.75rem; }
-    .kpi-card-wide { grid-column: span 1; }
+    .kpi-card-wide,
+    .kpi-grid-month .kpi-card { grid-column: auto; }
     .period-range { width: 100%; }
     .period-range .form-control { flex: 1; min-width: 0; }
     .period-actions { width: 100%; margin-left: 0; }

@@ -224,6 +224,28 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         # Only the July 2024 record (1500) counts towards the total now
         self.assertNotIn(b'$3,600.00', response.data)
 
+    def test_admin_this_month_expenses_and_net_profit_sqlite(self):
+        """Test that This Month shows maintenance, IT subscription and net profit for the current month."""
+        self.login_helper('admin', 'admin123')
+        this_month = date.today().replace(day=1).strftime('%Y-%m-%d')
+
+        self.client.post('/admin/add_record', data={
+            'address': '456 Valley Rd',
+            'month': this_month,
+            'rent_received': '1000.00',
+            'receiving_partner': 'Partner Two',
+            'other_income': '0.00',
+            'other_expenses': '0.00'
+        }, follow_redirects=True)
+
+        response = self.client.get('/admin/dashboard')
+        self.assertIn(b'Net Profit', response.data)
+        # 1000 rent - 200 maintenance (20%) - 20 IT = 780 net profit
+        self.assertIn(b'$1,000.00 rent', response.data)
+        self.assertIn(b'$200.00 maintenance', response.data)
+        self.assertIn(b'$20.00 IT', response.data)
+        self.assertIn(b'$780.00', response.data)
+
     # ---------- GOOGLE SHEETS MODE TESTS (MOCKED) ----------
 
     @patch('app.is_google_configured', return_value=True)

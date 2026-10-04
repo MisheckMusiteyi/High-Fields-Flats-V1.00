@@ -612,6 +612,10 @@ def admin_dashboard():
         current_rent = sum(r['rent_received'] for r in current_records)
         current_profit = sum(r['profit'] for r in current_records)
         current_owing = sum(r['rent_owing'] for r in current_records)
+        current_maint = sum(r['maintenance'] for r in current_records)
+        current_it = sum(r['it_subscription'] for r in current_records)
+        current_other_in = sum(r['other_income'] for r in current_records)
+        current_other_ex = sum(r['other_expenses'] for r in current_records)
         current_expected = sum(h['fixed_rent'] for h in all_houses if h['active'])
         current_collected_pct = min(100, round(current_rent / current_expected * 100)) if current_expected else 0
 
@@ -672,6 +676,10 @@ def admin_dashboard():
                                current_rent=current_rent,
                                current_profit=current_profit,
                                current_owing=current_owing,
+                               current_maint=current_maint,
+                               current_it=current_it,
+                               current_other_in=current_other_in,
+                               current_other_ex=current_other_ex,
                                active_backend="Google Sheets" if is_google_configured() else "Local SQLite")
     except gspread.exceptions.SpreadsheetNotFound:
         flash("Google Spreadsheet not found. Please double-check your Google Sheet ID in secrets.json/environment variables.", "error")
