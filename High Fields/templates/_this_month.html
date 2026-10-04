@@ -1,0 +1,72 @@
+{# "This Month" section shared by the admin and partner dashboards.
+   Expects the values from this_month_summary(); the partner dashboard also passes current_my_received. #}
+{% from '_icons.html' import icon %}
+{% set show_my_received = current_my_received is defined %}
+
+<div class="section-head">
+    <div>
+        <h2>This Month</h2>
+        <p class="text-muted">{{ current_month_label }}</p>
+    </div>
+</div>
+
+<div class="kpi-grid kpi-grid-month">
+    <div class="kpi-card kpi-card-wide">
+        <span class="kpi-icon tone-sky">{{ icon('calendar') }}</span>
+        <div class="kpi-body">
+            <h3>Rent Collected</h3>
+            <div class="value">${{ "{:,.2f}".format(current_rent) }} <span class="value-sub">of ${{ "{:,.2f}".format(current_expected) }} expected</span></div>
+            <div class="progress" role="progressbar" aria-valuenow="{{ current_collected_pct }}" aria-valuemin="0" aria-valuemax="100">
+                <span style="width: {{ current_collected_pct }}%"></span>
+            </div>
+            <p class="kpi-note">{{ current_collected_pct }}% of active houses' monthly rent</p>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-icon tone-amber">{{ icon('wrench') }}</span>
+        <div>
+            <h3>Maintenance</h3>
+            <div class="value">${{ "{:,.2f}".format(current_maint) }}</div>
+            <p class="kpi-note">20% of rent collected</p>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-icon tone-violet">{{ icon('monitor') }}</span>
+        <div>
+            <h3>IT Subscriptions</h3>
+            <div class="value">${{ "{:,.2f}".format(current_it) }}</div>
+            <p class="kpi-note">$20 per house recorded</p>
+        </div>
+    </div>
+    <div class="kpi-card {% if show_my_received %}kpi-card-wide{% else %}kpi-card-net{% endif %} kpi-card-highlight">
+        <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
+        <div class="kpi-body">
+            <h3>Net Profit</h3>
+            <div class="value {% if current_profit < 0 %}text-error{% else %}text-success{% endif %}">${{ "{:,.2f}".format(current_profit) }}</div>
+            <p class="kpi-note">
+                ${{ "{:,.2f}".format(current_rent) }} rent
+                − ${{ "{:,.2f}".format(current_maint) }} maintenance
+                − ${{ "{:,.2f}".format(current_it) }} IT
+                {% if current_other_in %}+ ${{ "{:,.2f}".format(current_other_in) }} other income{% endif %}
+                {% if current_other_ex %}− ${{ "{:,.2f}".format(current_other_ex) }} other expenses{% endif %}
+            </p>
+        </div>
+    </div>
+    {% if show_my_received %}
+    <div class="kpi-card">
+        <span class="kpi-icon tone-indigo">{{ icon('receipt') }}</span>
+        <div>
+            <h3>My Received Rent</h3>
+            <div class="value text-success">${{ "{:,.2f}".format(current_my_received) }}</div>
+            <p class="kpi-note">Profit on records where you received the rent</p>
+        </div>
+    </div>
+    {% endif %}
+    <div class="kpi-card {% if not show_my_received %}kpi-card-owing{% endif %}">
+        <span class="kpi-icon tone-rose">{{ icon('alert') }}</span>
+        <div>
+            <h3>Rent Owing</h3>
+            <div class="value {% if current_owing > 0 %}text-error{% endif %}">${{ "{:,.2f}".format(current_owing) }}</div>
+        </div>
+    </div>
+</div>

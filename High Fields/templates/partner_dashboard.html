@@ -23,6 +23,17 @@
 {% block content %}
 <!-- Tab 1: My Financials -->
 <div id="financials" class="tab-content default-open">
+    <!-- This Month -->
+    {% include "_this_month.html" %}
+
+    <!-- All Time (filterable) -->
+    <div class="section-head">
+        <div>
+            <h2>All Time</h2>
+            <p class="text-muted">Use the filters to narrow by house or date range</p>
+        </div>
+    </div>
+
     <!-- Filter Card -->
     <div class="card">
         <div class="card-header">
@@ -70,7 +81,7 @@
         <div class="kpi-card">
             <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
             <div>
-                <h3>Total Profit</h3>
+                <h3>Net Profit</h3>
                 <div class="value">${{ "{:,.2f}".format(total_profit) }}</div>
             </div>
         </div>
