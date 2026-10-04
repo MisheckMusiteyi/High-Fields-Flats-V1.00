@@ -246,6 +246,32 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         self.assertIn(b'$20.00 IT', response.data)
         self.assertIn(b'$780.00', response.data)
 
+    def test_partner_this_month_sqlite(self):
+        """Test that the partner dashboard shows the This Month section, including their own received rent."""
+        self.login_helper('admin', 'admin123')
+        this_month = date.today().replace(day=1).strftime('%Y-%m-%d')
+        self.client.post('/admin/add_record', data={
+            'address': '456 Valley Rd',
+            'month': this_month,
+            'rent_received': '1000.00',
+            'receiving_partner': 'Partner One',
+            'other_income': '0.00',
+            'other_expenses': '0.00'
+        }, follow_redirects=True)
+        self.client.get('/logout')
+
+        self.login_helper('partner1', 'partner123')
+        response = self.client.get('/partner/dashboard')
+        self.assertIn(b'This Month', response.data)
+        self.assertIn(b'My Received Rent', response.data)
+        # 1000 rent - 200 maintenance - 20 IT = 780, received by Partner One
+        self.assertIn(b'$200.00 maintenance', response.data)
+        self.assertIn(b'$780.00', response.data)
+
+        # Filters on the All Time section don't change This Month
+        response = self.client.get('/partner/dashboard?house_filter=123+High+Fields+St')
+        self.assertIn(b'$200.00 maintenance', response.data)
+
     # ---------- GOOGLE SHEETS MODE TESTS (MOCKED) ----------
 
     @patch('app.is_google_configured', return_value=True)

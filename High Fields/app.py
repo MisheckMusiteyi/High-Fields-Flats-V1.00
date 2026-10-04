@@ -499,6 +499,26 @@ def format_month_period(start, end):
         return f"Up to {label(end)}"
     return "All time"
 
+def this_month_summary(all_records, all_houses, today):
+    """Totals for the current calendar month, shared by the admin and partner dashboards."""
+    current_month_key = today.strftime("%Y-%m")
+    current_records = [r for r in all_records if r['month'][:7] == current_month_key]
+    current_rent = sum(r['rent_received'] for r in current_records)
+    current_expected = sum(h['fixed_rent'] for h in all_houses if h['active'])
+    return {
+        'current_records': current_records,
+        'current_month_label': today.strftime("%B %Y"),
+        'current_rent': current_rent,
+        'current_profit': sum(r['profit'] for r in current_records),
+        'current_owing': sum(r['rent_owing'] for r in current_records),
+        'current_maint': sum(r['maintenance'] for r in current_records),
+        'current_it': sum(r['it_subscription'] for r in current_records),
+        'current_other_in': sum(r['other_income'] for r in current_records),
+        'current_other_ex': sum(r['other_expenses'] for r in current_records),
+        'current_expected': current_expected,
+        'current_collected_pct': min(100, round(current_rent / current_expected * 100)) if current_expected else 0,
+    }
+
 # ---------- ROUTES ----------
 
 @app.route('/')
@@ -607,17 +627,8 @@ def admin_dashboard():
 
         # Overview: "This Month" metrics
         today = date.today()
-        current_month_key = today.strftime("%Y-%m")
-        current_records = [r for r in all_records if r['month'][:7] == current_month_key]
-        current_rent = sum(r['rent_received'] for r in current_records)
-        current_profit = sum(r['profit'] for r in current_records)
-        current_owing = sum(r['rent_owing'] for r in current_records)
-        current_maint = sum(r['maintenance'] for r in current_records)
-        current_it = sum(r['it_subscription'] for r in current_records)
-        current_other_in = sum(r['other_income'] for r in current_records)
-        current_other_ex = sum(r['other_expenses'] for r in current_records)
-        current_expected = sum(h['fixed_rent'] for h in all_houses if h['active'])
-        current_collected_pct = min(100, round(current_rent / current_expected * 100)) if current_expected else 0
+        this_month = this_month_summary(all_records, all_houses, today)
+        current_records = this_month.pop('current_records')
 
         # Overview: Houses table with this month's payment status
         houses_overview = []
@@ -649,9 +660,6 @@ def admin_dashboard():
 
         return render_template('admin_dashboard.html',
                                houses_overview=houses_overview,
-                               current_month_label=today.strftime("%B %Y"),
-                               current_expected=current_expected,
-                               current_collected_pct=current_collected_pct,
                                period_start=period_start,
                                period_end=period_end,
                                period_label=format_month_period(period_start, period_end),
@@ -673,13 +681,7 @@ def admin_dashboard():
                                it_total=it_total,
                                other_inc_total=other_inc_total,
                                other_exp_total=other_exp_total,
-                               current_rent=current_rent,
-                               current_profit=current_profit,
-                               current_owing=current_owing,
-                               current_maint=current_maint,
-                               current_it=current_it,
-                               current_other_in=current_other_in,
-                               current_other_ex=current_other_ex,
+                               **this_month,
                                active_backend="Google Sheets" if is_google_configured() else "Local SQLite")
     except gspread.exceptions.SpreadsheetNotFound:
         flash("Google Spreadsheet not found. Please double-check your Google Sheet ID in secrets.json/environment variables.", "error")
@@ -764,6 +766,13 @@ def partner_dashboard():
         my_receipts = sum(r['profit'] for r in records if r['receiving_partner'] == partner_name)
         my_records = [r for r in records if r['receiving_partner'] == partner_name]
 
+        # "This Month" ignores the filters above, like the admin overview
+        all_houses = storage.get_all_houses()
+        all_records = storage.get_monthly_records() if (house_filter or start_date or end_date) else records
+        this_month = this_month_summary(all_records, all_houses, date.today())
+        current_records = this_month.pop('current_records')
+        current_my_received = sum(r['profit'] for r in current_records if r['receiving_partner'] == partner_name)
+
         partners = storage.get_partners()
         partner_profile = next((p for p in partners if str(p['email']).strip().lower() == session.get('email').lower()), None)
 
@@ -781,6 +790,8 @@ def partner_dashboard():
                                total_other_in=total_other_in,
                                total_other_ex=total_other_ex,
                                my_receipts=my_receipts,
+                               **this_month,
+                               current_my_received=current_my_received,
                                partner_profile=partner_profile,
                                active_backend="Google Sheets" if is_google_configured() else "Local SQLite")
     except gspread.exceptions.SpreadsheetNotFound:
