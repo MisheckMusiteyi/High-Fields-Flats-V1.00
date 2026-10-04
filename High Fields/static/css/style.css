@@ -1,11 +1,15 @@
 /* ==========================================================================
    HIGH FIELDS FLATS - RENTAL TRACKER CSS
    Theme: Admin dashboard – dark slate sidebar, indigo accent, light canvas
-   Font: Inter
+   Fonts: Fraunces (headings & key numbers), Inter (body)
    ========================================================================== */
 
 /* --- Root & Resets --- */
 :root {
+    /* Typography */
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
     /* Brand */
     --primary: #4f46e5;
     --primary-hover: #4338ca;
@@ -56,7 +60,7 @@
 }
 
 body {
-    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: var(--font-body);
     font-size: 14px;
     background-color: var(--bg);
     color: var(--text);
@@ -841,6 +845,31 @@ code {
     font-size: 0.78rem;
     text-align: center;
 }
+
+/* --- Display font: Fraunces for headings and key numbers --- */
+.brand-name,
+.login-brand-name,
+.brand-mark,
+.topbar-title h1,
+.login-title,
+.section-head h2,
+.card-header h2,
+.kpi-card .value,
+.calculation-value {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+}
+
+.topbar-title h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.01em; }
+.login-title { font-size: 2rem; font-weight: 800; letter-spacing: -0.01em; }
+.section-head h2 { font-size: 1.3rem; font-weight: 700; }
+.card-header h2 { font-size: 1.1rem; font-weight: 700; }
+.brand-name, .login-brand-name { font-size: 1.05rem; font-weight: 700; }
+.kpi-card .value { font-size: 1.65rem; font-weight: 700; letter-spacing: -0.01em; }
+.value-split { font-size: 1.15rem !important; }
+
+/* Supporting text inside a value stays in the body font */
+.value-sub { font-family: var(--font-body); }
 
 /* --- Responsive --- */
 @media (max-width: 1024px) {
