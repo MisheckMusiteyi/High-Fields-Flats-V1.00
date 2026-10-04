@@ -23,53 +23,174 @@
 {% block content %}
 <!-- Tab 1: Overview & KPIs -->
 <div id="overview" class="tab-content default-open">
+    <!-- This Month -->
+    <div class="section-head">
+        <div>
+            <h2>This Month</h2>
+            <p class="text-muted">{{ current_month_label }}</p>
+        </div>
+    </div>
+
     <div class="kpi-grid">
-        <div class="kpi-card">
-            <span class="kpi-icon tone-indigo">{{ icon('wallet') }}</span>
-            <div>
-                <h3>Total Rent (All Time)</h3>
-                <div class="value">${{ "{:,.2f}".format(total_alltime_rent) }}</div>
-            </div>
-        </div>
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card-wide">
             <span class="kpi-icon tone-sky">{{ icon('calendar') }}</span>
-            <div>
-                <h3>Current Month Rent</h3>
-                <div class="value">${{ "{:,.2f}".format(current_rent) }}</div>
+            <div class="kpi-body">
+                <h3>Rent Collected</h3>
+                <div class="value">${{ "{:,.2f}".format(current_rent) }} <span class="value-sub">of ${{ "{:,.2f}".format(current_expected) }} expected</span></div>
+                <div class="progress" role="progressbar" aria-valuenow="{{ current_collected_pct }}" aria-valuemin="0" aria-valuemax="100">
+                    <span style="width: {{ current_collected_pct }}%"></span>
+                </div>
+                <p class="kpi-note">{{ current_collected_pct }}% of active houses' monthly rent</p>
             </div>
         </div>
         <div class="kpi-card">
             <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
             <div>
-                <h3>Total Profit (All Time)</h3>
-                <div class="value">${{ "{:,.2f}".format(total_profit_all) }}</div>
-            </div>
-        </div>
-        <div class="kpi-card">
-            <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
-            <div>
-                <h3>Current Month Profit</h3>
+                <h3>Profit</h3>
                 <div class="value">${{ "{:,.2f}".format(current_profit) }}</div>
             </div>
         </div>
         <div class="kpi-card">
             <span class="kpi-icon tone-rose">{{ icon('alert') }}</span>
             <div>
-                <h3>Total Rent Owing</h3>
-                <div class="value text-error">${{ "{:,.2f}".format(total_owing_all) }}</div>
+                <h3>Rent Owing</h3>
+                <div class="value {% if current_owing > 0 %}text-error{% endif %}">${{ "{:,.2f}".format(current_owing) }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Houses -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2>{{ icon('home') }} Houses</h2>
+                <p class="text-muted">Monthly rent and payment status for {{ current_month_label }}</p>
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Status</th>
+                        <th class="num">Monthly Rent</th>
+                        <th class="num">Received This Month</th>
+                        <th>Payment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if houses_overview %}
+                        {% for h in houses_overview %}
+                            <tr class="{% if not h.active %}row-muted{% endif %}">
+                                <td class="strong">{{ h.address }}</td>
+                                <td>
+                                    {% if h.active %}<span class="badge badge-success"><span class="badge-dot"></span>Active</span>
+                                    {% else %}<span class="badge badge-neutral"><span class="badge-dot"></span>Inactive</span>{% endif %}
+                                </td>
+                                <td class="num">${{ "{:,.2f}".format(h.fixed_rent) }}</td>
+                                <td class="num">{% if h.active %}${{ "{:,.2f}".format(h.received) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                                <td>
+                                    {% if h.payment_status == 'paid' %}<span class="badge badge-success">Paid</span>
+                                    {% elif h.payment_status == 'partial' %}<span class="badge badge-error">Owing ${{ "{:,.2f}".format(h.owing) }}</span>
+                                    {% elif h.payment_status == 'not_recorded' %}<span class="badge badge-warning">Not recorded</span>
+                                    {% else %}<span class="text-muted">—</span>{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="empty-state">No houses found.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- All Time -->
+    <div class="section-head">
+        <div>
+            <h2>All Time</h2>
+            <p class="text-muted">Showing: <strong>{{ period_label }}</strong></p>
+        </div>
+        <div class="chip-group">
+            <a href="{{ url_for('admin_dashboard', active_tab='overview') }}" class="chip {% if not period_start and not period_end %}active{% endif %}">All time</a>
+            <a href="{{ url_for('admin_dashboard', active_tab='overview', from_month=1, from_year=today.year, to_month=12, to_year=today.year) }}" class="chip {% if period_start == today.year ~ '-01' and period_end == today.year ~ '-12' %}active{% endif %}">This year</a>
+            <a href="{{ url_for('admin_dashboard', active_tab='overview', from_month=last_12_start.month, from_year=last_12_start.year, to_month=today.month, to_year=today.year) }}" class="chip {% if period_start == last_12_start.strftime('%Y-%m') and period_end == today.strftime('%Y-%m') %}active{% endif %}">Last 12 months</a>
+        </div>
+    </div>
+
+    <form method="GET" action="{{ url_for('admin_dashboard') }}" class="card period-filter">
+        <input type="hidden" name="active_tab" value="overview">
+        <div class="period-range">
+            <span class="period-label">From</span>
+            <select name="from_month" class="form-control" aria-label="From month">
+                <option value="">Month</option>
+                {% for m in month_names %}
+                    <option value="{{ loop.index }}" {% if period_start and period_start[5:7]|int == loop.index %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+            <select name="from_year" class="form-control" aria-label="From year">
+                <option value="">Year</option>
+                {% for y in period_years %}
+                    <option value="{{ y }}" {% if period_start and period_start[:4]|int == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="period-range">
+            <span class="period-label">To</span>
+            <select name="to_month" class="form-control" aria-label="To month">
+                <option value="">Month</option>
+                {% for m in month_names %}
+                    <option value="{{ loop.index }}" {% if period_end and period_end[5:7]|int == loop.index %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+            <select name="to_year" class="form-control" aria-label="To year">
+                <option value="">Year</option>
+                {% for y in period_years %}
+                    <option value="{{ y }}" {% if period_end and period_end[:4]|int == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="period-actions">
+            <a href="{{ url_for('admin_dashboard', active_tab='overview') }}" class="btn btn-outline">Reset</a>
+            <button type="submit" class="btn btn-primary">Apply</button>
+        </div>
+    </form>
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <span class="kpi-icon tone-indigo">{{ icon('wallet') }}</span>
+            <div>
+                <h3>Total Rent</h3>
+                <div class="value">${{ "{:,.2f}".format(total_alltime_rent) }}</div>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
+            <div>
+                <h3>Total Profit</h3>
+                <div class="value">${{ "{:,.2f}".format(total_profit_all) }}</div>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-icon tone-rose">{{ icon('alert') }}</span>
+            <div>
+                <h3>Rent Owing</h3>
+                <div class="value {% if total_owing_all > 0 %}text-error{% endif %}">${{ "{:,.2f}".format(total_owing_all) }}</div>
             </div>
         </div>
         <div class="kpi-card">
             <span class="kpi-icon tone-amber">{{ icon('wrench') }}</span>
             <div>
-                <h3>Maintenance (All Time)</h3>
+                <h3>Maintenance</h3>
                 <div class="value">${{ "{:,.2f}".format(maint_total) }}</div>
             </div>
         </div>
         <div class="kpi-card">
             <span class="kpi-icon tone-violet">{{ icon('monitor') }}</span>
             <div>
-                <h3>IT Subscriptions (All Time)</h3>
+                <h3>IT Subscriptions</h3>
                 <div class="value">${{ "{:,.2f}".format(it_total) }}</div>
             </div>
         </div>
