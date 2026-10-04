@@ -8,8 +8,8 @@ __pycache__/
 # SQLite Database
 *.db
 
-# Flask log
-flask_app.log
+# Flask logs
+*.log
 
 # Uploaded partner avatars
-static/uploads/
+**/static/uploads/
