@@ -6,7 +6,7 @@ import io
 import json
 from datetime import datetime, date
 from unittest.mock import patch, MagicMock
-from app import app, init_db, DATABASE, get_storage, is_google_configured, SQLiteStorage, GoogleSheetsStorage
+from app import app, init_db, DATABASE, get_storage, is_google_configured, SQLiteStorage, GoogleSheetsStorage, parse_month_period, format_month_period
 from werkzeug.security import check_password_hash, generate_password_hash
 
 class HighFieldsTrackerTestCase(unittest.TestCase):
@@ -192,6 +192,37 @@ class HighFieldsTrackerTestCase(unittest.TestCase):
         self.assertEqual(headers[2], 'Month')
 
         self.assertIn('123 High Fields St', lines[1])
+
+    def test_parse_month_period(self):
+        """Test reading the overview month-range filter from query params."""
+        self.assertEqual(parse_month_period({}), ('', ''))
+        self.assertEqual(parse_month_period({'from_month': '1', 'from_year': '2026', 'to_month': '3', 'to_year': '2027'}),
+                         ('2026-01', '2027-03'))
+        # Reversed range is swapped
+        self.assertEqual(parse_month_period({'from_month': '3', 'from_year': '2027', 'to_month': '1', 'to_year': '2026'}),
+                         ('2026-01', '2027-03'))
+        # Incomplete or invalid values are ignored
+        self.assertEqual(parse_month_period({'from_month': '13', 'from_year': '2026', 'to_year': '2027'}), ('', ''))
+        self.assertEqual(format_month_period('2026-01', '2027-03'), 'Jan 2026 – Mar 2027')
+        self.assertEqual(format_month_period('', ''), 'All time')
+
+    def test_admin_overview_houses_and_period_filter_sqlite(self):
+        """Test the overview Houses table and the All Time month-range filter in SQLite mode."""
+        self.login_helper('admin', 'admin123')
+
+        response = self.client.get('/admin/dashboard')
+        # All houses are listed, including the inactive one
+        self.assertIn(b'101 Pine St', response.data)
+        self.assertIn(b'Inactive', response.data)
+        # Seeded records are from 2024, so active houses have nothing recorded this month
+        self.assertIn(b'Not recorded', response.data)
+        # Unfiltered all-time rent: 1200 + 900 + 1500
+        self.assertIn(b'$3,600.00', response.data)
+
+        response = self.client.get('/admin/dashboard?from_month=7&from_year=2024&to_month=7&to_year=2024')
+        self.assertIn('Jul 2024 – Jul 2024'.encode('utf-8'), response.data)
+        # Only the July 2024 record (1500) counts towards the total now
+        self.assertNotIn(b'$3,600.00', response.data)
 
     # ---------- GOOGLE SHEETS MODE TESTS (MOCKED) ----------
 

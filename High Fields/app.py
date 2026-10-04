@@ -126,6 +126,14 @@ class SQLiteStorage:
         conn.close()
         return houses
 
+    def get_all_houses(self):
+        conn = self.get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM houses ORDER BY active DESC, address")
+        houses = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return houses
+
     def get_house_fixed_rent(self, address):
         conn = self.get_db()
         cursor = conn.cursor()
@@ -242,6 +250,21 @@ class GoogleSheetsStorage:
                     'fixed_rent': fixed_rent,
                     'active': 1
                 })
+        return records
+
+    def get_all_houses(self):
+        df = self.load_sheet("Houses")
+        if df.empty:
+            return []
+        records = []
+        for _, row in df.iterrows():
+            active_val = str(row.get('Active', '')).strip().lower()
+            records.append({
+                'address': str(row.get('Address', '')).strip(),
+                'fixed_rent': to_float_clean(row.get('Fixed_Rent', 0.0)),
+                'active': 1 if active_val in ['true', 'yes', '1'] else 0
+            })
+        records.sort(key=lambda h: (-h['active'], h['address']))
         return records
 
     def get_house_fixed_rent(self, address):
@@ -447,6 +470,35 @@ def login_required(role=None):
         return decorated_function
     return wrapper
 
+# ---------- PERIOD FILTER HELPERS ----------
+MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+def parse_month_period(args):
+    """Reads from_month/from_year/to_month/to_year query params into 'YYYY-MM' strings ('' when unset)."""
+    def year_month(prefix):
+        year = args.get(f'{prefix}_year', '')
+        month = args.get(f'{prefix}_month', '')
+        if year.isdigit() and month.isdigit() and 1 <= int(month) <= 12:
+            return f"{int(year):04d}-{int(month):02d}"
+        return ''
+
+    start, end = year_month('from'), year_month('to')
+    if start and end and start > end:
+        start, end = end, start
+    return start, end
+
+def format_month_period(start, end):
+    """'Jan 2026 – Mar 2027', 'From Jan 2026', 'Up to Mar 2027' or 'All time'."""
+    def label(ym):
+        return f"{MONTH_NAMES[int(ym[5:7]) - 1]} {ym[:4]}"
+    if start and end:
+        return f"{label(start)} – {label(end)}"
+    if start:
+        return f"From {label(start)}"
+    if end:
+        return f"Up to {label(end)}"
+    return "All time"
+
 # ---------- ROUTES ----------
 
 @app.route('/')
@@ -524,28 +576,85 @@ def admin_dashboard():
         active_houses = storage.get_active_houses()
         partners = storage.get_partners()
 
+        all_houses = storage.get_all_houses()
+
+        # Data Table tab filters
         house_filter = request.args.get('house_filter', '')
         partner_filter = request.args.get('partner_filter', '')
         start_date = request.args.get('start_date', '')
         end_date = request.args.get('end_date', '')
 
-        records = storage.get_monthly_records(house_filter, partner_filter, start_date, end_date)
+        all_records = storage.get_monthly_records()
+        if house_filter or partner_filter or start_date or end_date:
+            records = storage.get_monthly_records(house_filter, partner_filter, start_date, end_date)
+        else:
+            records = all_records
 
-        total_alltime_rent = sum(r['rent_received'] for r in records)
-        total_profit_all = sum(r['profit'] for r in records)
-        total_owing_all = sum(r['rent_owing'] for r in records)
-        maint_total = sum(r['maintenance'] for r in records)
-        it_total = sum(r['it_subscription'] for r in records)
-        other_inc_total = sum(r['other_income'] for r in records)
-        other_exp_total = sum(r['other_expenses'] for r in records)
+        # Overview: "All Time" metrics, optionally limited to a month range
+        period_start, period_end = parse_month_period(request.args)
+        period_records = [
+            r for r in all_records
+            if (not period_start or r['month'][:7] >= period_start)
+            and (not period_end or r['month'][:7] <= period_end)
+        ]
+        total_alltime_rent = sum(r['rent_received'] for r in period_records)
+        total_profit_all = sum(r['profit'] for r in period_records)
+        total_owing_all = sum(r['rent_owing'] for r in period_records)
+        maint_total = sum(r['maintenance'] for r in period_records)
+        it_total = sum(r['it_subscription'] for r in period_records)
+        other_inc_total = sum(r['other_income'] for r in period_records)
+        other_exp_total = sum(r['other_expenses'] for r in period_records)
 
-        current_month_str = date.today().replace(day=1).strftime("%Y-%m-%d")
-        current_records = [r for r in records if r['month'] == current_month_str]
+        # Overview: "This Month" metrics
+        today = date.today()
+        current_month_key = today.strftime("%Y-%m")
+        current_records = [r for r in all_records if r['month'][:7] == current_month_key]
         current_rent = sum(r['rent_received'] for r in current_records)
         current_profit = sum(r['profit'] for r in current_records)
         current_owing = sum(r['rent_owing'] for r in current_records)
+        current_expected = sum(h['fixed_rent'] for h in all_houses if h['active'])
+        current_collected_pct = min(100, round(current_rent / current_expected * 100)) if current_expected else 0
+
+        # Overview: Houses table with this month's payment status
+        houses_overview = []
+        for h in all_houses:
+            house_records = [r for r in current_records if r['address'] == h['address']]
+            received = sum(r['rent_received'] for r in house_records)
+            owing = sum(r['rent_owing'] for r in house_records)
+            if not h['active']:
+                payment_status = 'inactive'
+            elif not house_records:
+                payment_status = 'not_recorded'
+            elif owing > 0:
+                payment_status = 'partial'
+            else:
+                payment_status = 'paid'
+            houses_overview.append({
+                'address': h['address'],
+                'fixed_rent': h['fixed_rent'],
+                'active': h['active'],
+                'received': received,
+                'owing': owing,
+                'payment_status': payment_status,
+            })
+
+        record_years = [int(r['month'][:4]) for r in all_records if r['month'][:4].isdigit()]
+        period_years = list(range(min(record_years + [today.year]), max(record_years + [today.year + 1]) + 1))
+        # First month of the 12-month window ending with the current month
+        last_12_start = date(today.year, 1, 1) if today.month == 12 else date(today.year - 1, today.month + 1, 1)
 
         return render_template('admin_dashboard.html',
+                               houses_overview=houses_overview,
+                               current_month_label=today.strftime("%B %Y"),
+                               current_expected=current_expected,
+                               current_collected_pct=current_collected_pct,
+                               period_start=period_start,
+                               period_end=period_end,
+                               period_label=format_month_period(period_start, period_end),
+                               period_years=period_years,
+                               month_names=MONTH_NAMES,
+                               today=today,
+                               last_12_start=last_12_start,
                                active_houses=active_houses,
                                partners=partners,
                                records=records,
