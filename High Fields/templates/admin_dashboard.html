@@ -31,7 +31,7 @@
         </div>
     </div>
 
-    <div class="kpi-grid">
+    <div class="kpi-grid kpi-grid-month">
         <div class="kpi-card kpi-card-wide">
             <span class="kpi-icon tone-sky">{{ icon('calendar') }}</span>
             <div class="kpi-body">
@@ -44,13 +44,36 @@
             </div>
         </div>
         <div class="kpi-card">
-            <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
+            <span class="kpi-icon tone-amber">{{ icon('wrench') }}</span>
             <div>
-                <h3>Profit</h3>
-                <div class="value">${{ "{:,.2f}".format(current_profit) }}</div>
+                <h3>Maintenance</h3>
+                <div class="value">${{ "{:,.2f}".format(current_maint) }}</div>
+                <p class="kpi-note">20% of rent collected</p>
             </div>
         </div>
         <div class="kpi-card">
+            <span class="kpi-icon tone-violet">{{ icon('monitor') }}</span>
+            <div>
+                <h3>IT Subscriptions</h3>
+                <div class="value">${{ "{:,.2f}".format(current_it) }}</div>
+                <p class="kpi-note">$20 per house recorded</p>
+            </div>
+        </div>
+        <div class="kpi-card kpi-card-net kpi-card-highlight">
+            <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
+            <div class="kpi-body">
+                <h3>Net Profit</h3>
+                <div class="value {% if current_profit < 0 %}text-error{% else %}text-success{% endif %}">${{ "{:,.2f}".format(current_profit) }}</div>
+                <p class="kpi-note">
+                    ${{ "{:,.2f}".format(current_rent) }} rent
+                    − ${{ "{:,.2f}".format(current_maint) }} maintenance
+                    − ${{ "{:,.2f}".format(current_it) }} IT
+                    {% if current_other_in %}+ ${{ "{:,.2f}".format(current_other_in) }} other income{% endif %}
+                    {% if current_other_ex %}− ${{ "{:,.2f}".format(current_other_ex) }} other expenses{% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="kpi-card kpi-card-owing">
             <span class="kpi-icon tone-rose">{{ icon('alert') }}</span>
             <div>
                 <h3>Rent Owing</h3>
@@ -169,7 +192,7 @@
         <div class="kpi-card">
             <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
             <div>
-                <h3>Total Profit</h3>
+                <h3>Net Profit</h3>
                 <div class="value">${{ "{:,.2f}".format(total_profit_all) }}</div>
             </div>
         </div>
