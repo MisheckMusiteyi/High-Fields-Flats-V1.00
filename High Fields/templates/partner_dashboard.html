@@ -1,40 +1,34 @@
 {% extends 'base.html' %}
+{% from '_icons.html' import icon %}
 
 {% block title %}Partner Dashboard - High Fields Flats{% endblock %}
 
+{% block sidebar_nav %}
+<button class="nav-item tab-link active" onclick="openTab(event, 'financials')" data-title="My Financials">
+    {{ icon('dashboard') }}<span>My Financials</span>
+</button>
+<button class="nav-item tab-link" onclick="openTab(event, 'rent-receipts')" data-title="My Rent Receipts">
+    {{ icon('receipt') }}<span>My Rent Receipts</span>
+</button>
+<button class="nav-item tab-link" onclick="openTab(event, 'profile-settings')" data-title="Profile Settings">
+    {{ icon('user') }}<span>Profile Settings</span>
+</button>
+{% endblock %}
+
+{% block page_header %}
+<p class="eyebrow">WELCOME, {{ session.get('name')|upper }}</p>
+<h1 id="page-title">My Financials</h1>
+{% endblock %}
+
 {% block content %}
-<div class="dashboard-header partner-header-layout">
-    <div>
-        <h1>WELCOME, {{ session.get('name')|upper }}</h1>
-        <p class="subtitle">Partner Dashboard – Rental & Financial Overview</p>
-    </div>
-    {% if partner_profile and partner_profile.photo_url %}
-        <div class="header-photo-wrapper">
-            <img src="{{ partner_profile.photo_url }}" alt="Profile Photo" class="header-profile-img">
-        </div>
-    {% else %}
-        <div class="header-photo-wrapper">
-            <div class="header-profile-img-placeholder">NO PHOTO</div>
-        </div>
-    {% endif %}
-</div>
-
-<!-- Tab Navigation -->
-<div class="tabs">
-    <button class="tab-link active" onclick="openTab(event, 'financials')">My Financials</button>
-    <button class="tab-link" onclick="openTab(event, 'rent-receipts')">My Rent Receipts</button>
-    <button class="tab-link" onclick="openTab(event, 'profile-settings')">Profile Settings</button>
-</div>
-
 <!-- Tab 1: My Financials -->
 <div id="financials" class="tab-content default-open">
-    <div class="section-title">
-        <h2>Financial Summary</h2>
-    </div>
-
     <!-- Filter Card -->
-    <div class="card filter-card">
-        <form method="GET" action="{{ url_for('partner_dashboard') }}" class="grid-3 form">
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ icon('filter') }} Filters</h2>
+        </div>
+        <form method="GET" action="{{ url_for('partner_dashboard') }}" class="grid-3 form card-body">
             <input type="hidden" name="active_tab" value="financials">
 
             <div class="form-group">
@@ -57,136 +51,177 @@
                 <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
             </div>
 
-            <div class="grid-span-3 text-right">
-                <a href="{{ url_for('partner_dashboard') }}" class="btn btn-outline" style="margin-right: 0.5rem;">Reset Filters</a>
+            <div class="grid-span-3 form-actions">
+                <a href="{{ url_for('partner_dashboard') }}" class="btn btn-outline">Reset Filters</a>
                 <button type="submit" class="btn btn-primary">Apply Filters</button>
             </div>
         </form>
     </div>
 
     <!-- Financial KPIs -->
-    <div class="kpi-grid" style="margin-bottom: 2rem;">
+    <div class="kpi-grid">
         <div class="kpi-card">
-            <h3>Total Rent Received</h3>
-            <div class="value">${{ "{:,.2f}".format(total_rent) }}</div>
+            <span class="kpi-icon tone-indigo">{{ icon('wallet') }}</span>
+            <div>
+                <h3>Total Rent Received</h3>
+                <div class="value">${{ "{:,.2f}".format(total_rent) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>Total Profit</h3>
-            <div class="value">${{ "{:,.2f}".format(total_profit) }}</div>
+            <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
+            <div>
+                <h3>Total Profit</h3>
+                <div class="value">${{ "{:,.2f}".format(total_profit) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>My Received Rent</h3>
-            <div class="value font-bold text-success">${{ "{:,.2f}".format(my_receipts) }}</div>
+            <span class="kpi-icon tone-sky">{{ icon('receipt') }}</span>
+            <div>
+                <h3>My Received Rent</h3>
+                <div class="value text-success">${{ "{:,.2f}".format(my_receipts) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>Maintenance Costs</h3>
-            <div class="value">${{ "{:,.2f}".format(total_maint) }}</div>
+            <span class="kpi-icon tone-amber">{{ icon('wrench') }}</span>
+            <div>
+                <h3>Maintenance Costs</h3>
+                <div class="value">${{ "{:,.2f}".format(total_maint) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>IT Subscriptions</h3>
-            <div class="value">${{ "{:,.2f}".format(total_it) }}</div>
+            <span class="kpi-icon tone-violet">{{ icon('monitor') }}</span>
+            <div>
+                <h3>IT Subscriptions</h3>
+                <div class="value">${{ "{:,.2f}".format(total_it) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>Other Income / Expenses</h3>
-            <div class="value">+${{ "{:,.2f}".format(total_other_in) }} / -${{ "{:,.2f}".format(total_other_ex) }}</div>
+            <span class="kpi-icon tone-slate">{{ icon('swap') }}</span>
+            <div>
+                <h3>Other Income / Expenses</h3>
+                <div class="value value-split">
+                    <span class="text-success">+${{ "{:,.2f}".format(total_other_in) }}</span>
+                    <span class="text-error">-${{ "{:,.2f}".format(total_other_ex) }}</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-        <span class="text-muted">Showing {{ records|length }} record(s)</span>
-        <a href="{{ url_for('download_csv', house_filter=house_filter, start_date=start_date, end_date=end_date) }}" class="btn btn-outline">Download My Data</a>
-    </div>
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2>Monthly Records</h2>
+                <p class="text-muted">Showing {{ records|length }} record(s)</p>
+            </div>
+            <a href="{{ url_for('download_csv', house_filter=house_filter, start_date=start_date, end_date=end_date) }}" class="btn btn-outline">{{ icon('download') }} Download My Data</a>
+        </div>
 
-    <div class="table-wrapper">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Record ID</th>
-                    <th>Address</th>
-                    <th>Month</th>
-                    <th>Rent Received</th>
-                    <th>Receiving Partner</th>
-                    <th>Maintenance</th>
-                    <th>IT Sub.</th>
-                    <th>Other Income</th>
-                    <th>Other Expenses</th>
-                    <th>Profit</th>
-                    <th>Rent Owing</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if records %}
-                    {% for r in records %}
-                        <tr>
-                            <td><code>{{ r.record_id }}</code></td>
-                            <td>{{ r.address }}</td>
-                            <td>{{ r.month }}</td>
-                            <td>${{ "{:,.2f}".format(r.rent_received) }}</td>
-                            <td>{{ r.receiving_partner }}</td>
-                            <td>${{ "{:,.2f}".format(r.maintenance) }}</td>
-                            <td>${{ "{:,.2f}".format(r.it_subscription) }}</td>
-                            <td>${{ "{:,.2f}".format(r.other_income) }}</td>
-                            <td>${{ "{:,.2f}".format(r.other_expenses) }}</td>
-                            <td class="font-bold {% if r.profit >= 0 %}text-success{% else %}text-error{% endif %}">${{ "{:,.2f}".format(r.profit) }}</td>
-                            <td class="{% if r.rent_owing > 0 %}text-error font-bold{% endif %}">${{ "{:,.2f}".format(r.rent_owing) }}</td>
-                        </tr>
-                    {% endfor %}
-                {% else %}
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
                     <tr>
-                        <td colspan="11" class="text-center text-muted">No records match filter criteria.</td>
+                        <th>Record ID</th>
+                        <th>Address</th>
+                        <th>Month</th>
+                        <th class="num">Rent Received</th>
+                        <th>Receiving Partner</th>
+                        <th class="num">Maintenance</th>
+                        <th class="num">IT Sub.</th>
+                        <th class="num">Other Income</th>
+                        <th class="num">Other Expenses</th>
+                        <th class="num">Profit</th>
+                        <th class="num">Rent Owing</th>
                     </tr>
-                {% endif %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% if records %}
+                        {% for r in records %}
+                            <tr>
+                                <td><code>{{ r.record_id }}</code></td>
+                                <td class="strong">{{ r.address }}</td>
+                                <td>{{ r.month }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.rent_received) }}</td>
+                                <td>{{ r.receiving_partner }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.maintenance) }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.it_subscription) }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.other_income) }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.other_expenses) }}</td>
+                                <td class="num"><span class="badge {% if r.profit >= 0 %}badge-success{% else %}badge-error{% endif %}">${{ "{:,.2f}".format(r.profit) }}</span></td>
+                                <td class="num">{% if r.rent_owing > 0 %}<span class="badge badge-error">${{ "{:,.2f}".format(r.rent_owing) }}</span>{% else %}<span class="text-muted">${{ "{:,.2f}".format(r.rent_owing) }}</span>{% endif %}</td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="11" class="empty-state">No records match filter criteria.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <!-- Tab 2: My Rent Receipts -->
 <div id="rent-receipts" class="tab-content" style="display:none;">
-    <div class="section-title">
-        <h2>Months Where I Received Rent</h2>
+    <div class="kpi-grid kpi-grid-single">
+        <div class="kpi-card">
+            <span class="kpi-icon tone-emerald">{{ icon('wallet') }}</span>
+            <div>
+                <h3>Total Received</h3>
+                <div class="value text-success">${{ "{:,.2f}".format(my_receipts) }}</div>
+            </div>
+        </div>
     </div>
 
-    <div class="table-wrapper" style="margin-bottom: 1.5rem;">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Month</th>
-                    <th>Address</th>
-                    <th>Profit</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if my_records %}
-                    {% for r in my_records %}
-                        <tr>
-                            <td>{{ r.month }}</td>
-                            <td>{{ r.address }}</td>
-                            <td class="font-bold text-success">${{ "{:,.2f}".format(r.profit) }}</td>
-                        </tr>
-                    {% endfor %}
-                {% else %}
+    <div class="card">
+        <div class="card-header">
+            <h2>Months Where I Received Rent</h2>
+        </div>
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
                     <tr>
-                        <td colspan="3" class="text-center text-muted">No rent receipts assigned to you yet.</td>
+                        <th>Month</th>
+                        <th>Address</th>
+                        <th class="num">Profit</th>
                     </tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
-
-    <div class="card bg-light text-right">
-        <h3 style="margin: 0;">Total Received: <span class="text-success font-bold">${{ "{:,.2f}".format(my_receipts) }}</span></h3>
+                </thead>
+                <tbody>
+                    {% if my_records %}
+                        {% for r in my_records %}
+                            <tr>
+                                <td>{{ r.month }}</td>
+                                <td class="strong">{{ r.address }}</td>
+                                <td class="num"><span class="badge badge-success">${{ "{:,.2f}".format(r.profit) }}</span></td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="3" class="empty-state">No rent receipts assigned to you yet.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <!-- Tab 3: Profile Settings -->
 <div id="profile-settings" class="tab-content" style="display:none;">
-    <div class="section-title">
-        <h2>Update Profile</h2>
-    </div>
-
     <div class="card">
-        <form action="{{ url_for('update_profile') }}" method="POST" enctype="multipart/form-data" class="form grid-2">
+        <div class="card-header profile-header">
+            {% if partner_profile and partner_profile.photo_url %}
+                <img src="{{ partner_profile.photo_url }}" alt="Profile Photo" class="avatar avatar-lg">
+            {% else %}
+                <span class="avatar avatar-lg avatar-initials">{{ (session.get('name') or '?')[:1]|upper }}</span>
+            {% endif %}
+            <div>
+                <h2>{{ session.get('name') }}</h2>
+                <p class="text-muted">{{ partner_profile.email if partner_profile else '' }}</p>
+            </div>
+        </div>
+
+        <form action="{{ url_for('update_profile') }}" method="POST" enctype="multipart/form-data" class="form card-body grid-2">
             <div>
                 <div class="form-group">
                     <label for="current_email">Current Email</label>
@@ -222,7 +257,7 @@
                 </div>
             </div>
 
-            <div class="grid-span-2 text-right" style="margin-top: 1rem;">
+            <div class="grid-span-2 form-actions">
                 <button type="submit" class="btn btn-primary">Save Changes</button>
             </div>
         </form>
@@ -230,9 +265,9 @@
 </div>
 
 <script>
-    // Tab switching logic
+    // Tab switching logic (menu items in the sidebar)
     function openTab(evt, tabName) {
-        var i, tabContent, tabLinks;
+        var i, tabContent, tabLinks, activeLink;
         tabContent = document.getElementsByClassName("tab-content");
         for (i = 0; i < tabContent.length; i++) {
             tabContent[i].style.display = "none";
@@ -243,14 +278,17 @@
         }
         document.getElementById(tabName).style.display = "block";
         if (evt) {
-            evt.currentTarget.className += " active";
+            activeLink = evt.currentTarget;
         } else {
-            var buttons = document.getElementsByClassName("tab-link");
-            for (var b = 0; b < buttons.length; b++) {
-                if (buttons[b].getAttribute("onclick").indexOf(tabName) !== -1) {
-                    buttons[b].className += " active";
+            for (i = 0; i < tabLinks.length; i++) {
+                if (tabLinks[i].getAttribute("onclick").indexOf(tabName) !== -1) {
+                    activeLink = tabLinks[i];
                 }
             }
+        }
+        if (activeLink) {
+            activeLink.className += " active";
+            document.getElementById('page-title').textContent = activeLink.getAttribute('data-title');
         }
 
         const url = new URL(window.location);

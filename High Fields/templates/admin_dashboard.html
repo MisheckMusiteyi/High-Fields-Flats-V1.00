@@ -1,70 +1,102 @@
 {% extends 'base.html' %}
+{% from '_icons.html' import icon %}
 
 {% block title %}Admin Dashboard - High Fields Flats{% endblock %}
 
+{% block sidebar_nav %}
+<button class="nav-item tab-link active" onclick="openTab(event, 'overview')" data-title="Overview">
+    {{ icon('dashboard') }}<span>Overview &amp; KPIs</span>
+</button>
+<button class="nav-item tab-link" onclick="openTab(event, 'add-record')" data-title="Add Monthly Record">
+    {{ icon('plus') }}<span>Add Monthly Record</span>
+</button>
+<button class="nav-item tab-link" onclick="openTab(event, 'data-table')" data-title="Monthly Records">
+    {{ icon('table') }}<span>Data Table &amp; Download</span>
+</button>
+{% endblock %}
+
+{% block page_header %}
+<p class="eyebrow">ADMIN DASHBOARD</p>
+<h1 id="page-title">Overview</h1>
+{% endblock %}
+
 {% block content %}
-<div class="dashboard-header">
-    <h1>ADMIN DASHBOARD</h1>
-    <p class="subtitle">High Fields Flats – Rental Tracker Overview & Management</p>
-</div>
-
-<!-- Tab Navigation -->
-<div class="tabs">
-    <button class="tab-link active" onclick="openTab(event, 'overview')">Overview & KPIs</button>
-    <button class="tab-link" onclick="openTab(event, 'add-record')">Add Monthly Record</button>
-    <button class="tab-link" onclick="openTab(event, 'data-table')">Data Table & Download</button>
-</div>
-
 <!-- Tab 1: Overview & KPIs -->
 <div id="overview" class="tab-content default-open">
-    <div class="section-title">
-        <h2>Key Performance Indicators</h2>
-    </div>
-
     <div class="kpi-grid">
         <div class="kpi-card">
-            <h3>Total Rent (All Time)</h3>
-            <div class="value">${{ "{:,.2f}".format(total_alltime_rent) }}</div>
+            <span class="kpi-icon tone-indigo">{{ icon('wallet') }}</span>
+            <div>
+                <h3>Total Rent (All Time)</h3>
+                <div class="value">${{ "{:,.2f}".format(total_alltime_rent) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>Current Month Rent</h3>
-            <div class="value">${{ "{:,.2f}".format(current_rent) }}</div>
+            <span class="kpi-icon tone-sky">{{ icon('calendar') }}</span>
+            <div>
+                <h3>Current Month Rent</h3>
+                <div class="value">${{ "{:,.2f}".format(current_rent) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>Total Profit (All Time)</h3>
-            <div class="value">${{ "{:,.2f}".format(total_profit_all) }}</div>
+            <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
+            <div>
+                <h3>Total Profit (All Time)</h3>
+                <div class="value">${{ "{:,.2f}".format(total_profit_all) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>Current Month Profit</h3>
-            <div class="value">${{ "{:,.2f}".format(current_profit) }}</div>
+            <span class="kpi-icon tone-emerald">{{ icon('trending') }}</span>
+            <div>
+                <h3>Current Month Profit</h3>
+                <div class="value">${{ "{:,.2f}".format(current_profit) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>Total Rent Owing</h3>
-            <div class="value font-bold text-error">${{ "{:,.2f}".format(total_owing_all) }}</div>
+            <span class="kpi-icon tone-rose">{{ icon('alert') }}</span>
+            <div>
+                <h3>Total Rent Owing</h3>
+                <div class="value text-error">${{ "{:,.2f}".format(total_owing_all) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>Maintenance (All Time)</h3>
-            <div class="value">${{ "{:,.2f}".format(maint_total) }}</div>
+            <span class="kpi-icon tone-amber">{{ icon('wrench') }}</span>
+            <div>
+                <h3>Maintenance (All Time)</h3>
+                <div class="value">${{ "{:,.2f}".format(maint_total) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>IT Subscriptions (All Time)</h3>
-            <div class="value">${{ "{:,.2f}".format(it_total) }}</div>
+            <span class="kpi-icon tone-violet">{{ icon('monitor') }}</span>
+            <div>
+                <h3>IT Subscriptions (All Time)</h3>
+                <div class="value">${{ "{:,.2f}".format(it_total) }}</div>
+            </div>
         </div>
         <div class="kpi-card">
-            <h3>Other Income / Expenses</h3>
-            <div class="value">+${{ "{:,.2f}".format(other_inc_total) }} / -${{ "{:,.2f}".format(other_exp_total) }}</div>
+            <span class="kpi-icon tone-slate">{{ icon('swap') }}</span>
+            <div>
+                <h3>Other Income / Expenses</h3>
+                <div class="value value-split">
+                    <span class="text-success">+${{ "{:,.2f}".format(other_inc_total) }}</span>
+                    <span class="text-error">-${{ "{:,.2f}".format(other_exp_total) }}</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Tab 2: Add Monthly Record -->
 <div id="add-record" class="tab-content" style="display:none;">
-    <div class="section-title">
-        <h2>Record New Month</h2>
-    </div>
-
     <div class="card">
-        <form action="{{ url_for('add_record') }}" method="POST" class="form grid-2">
+        <div class="card-header">
+            <div>
+                <h2>Record New Month</h2>
+                <p class="text-muted">Maintenance and IT subscription are calculated automatically.</p>
+            </div>
+        </div>
+
+        <form action="{{ url_for('add_record') }}" method="POST" class="form card-body grid-2">
             <div>
                 <div class="form-group">
                     <label for="address">House Address *</label>
@@ -121,14 +153,16 @@
 
             <div class="grid-span-2 calculation-preview">
                 <div class="calculation-item">
-                    <strong>Calculated Rent Owing:</strong> <span id="rent_owing_preview">$0.00</span>
+                    <span class="calculation-label">Calculated Rent Owing</span>
+                    <span id="rent_owing_preview">$0.00</span>
                 </div>
                 <div class="calculation-item">
-                    <strong>Calculated Profit:</strong> <span id="profit_preview">$0.00</span>
+                    <span class="calculation-label">Calculated Profit</span>
+                    <span id="profit_preview">$0.00</span>
                 </div>
             </div>
 
-            <div class="grid-span-2 text-right" style="margin-top: 1rem;">
+            <div class="grid-span-2 form-actions">
                 <button type="submit" class="btn btn-primary">Save Record</button>
             </div>
         </form>
@@ -137,13 +171,12 @@
 
 <!-- Tab 3: Data Table & Download -->
 <div id="data-table" class="tab-content" style="display:none;">
-    <div class="section-title">
-        <h2>All Monthly Records</h2>
-    </div>
-
     <!-- Filter Card -->
-    <div class="card filter-card">
-        <form method="GET" action="{{ url_for('admin_dashboard') }}" class="grid-4 form">
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ icon('filter') }} Filters</h2>
+        </div>
+        <form method="GET" action="{{ url_for('admin_dashboard') }}" class="grid-4 form card-body">
             <input type="hidden" name="active_tab" value="data-table">
 
             <div class="form-group">
@@ -176,69 +209,73 @@
                 <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
             </div>
 
-            <div class="grid-span-4 text-right">
-                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline" style="margin-right: 0.5rem;">Reset Filters</a>
+            <div class="grid-span-4 form-actions">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline">Reset Filters</a>
                 <button type="submit" class="btn btn-primary">Apply Filters</button>
             </div>
         </form>
     </div>
 
-    <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-        <span class="text-muted">Showing {{ records|length }} record(s)</span>
-        <a href="{{ url_for('download_csv', house_filter=house_filter, partner_filter=partner_filter, start_date=start_date, end_date=end_date) }}" class="btn btn-outline">Download CSV</a>
-    </div>
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2>All Monthly Records</h2>
+                <p class="text-muted">Showing {{ records|length }} record(s)</p>
+            </div>
+            <a href="{{ url_for('download_csv', house_filter=house_filter, partner_filter=partner_filter, start_date=start_date, end_date=end_date) }}" class="btn btn-outline">{{ icon('download') }} Download CSV</a>
+        </div>
 
-    <!-- Table Wrapper -->
-    <div class="table-wrapper">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Record ID</th>
-                    <th>Address</th>
-                    <th>Month</th>
-                    <th>Rent Received</th>
-                    <th>Receiving Partner</th>
-                    <th>Maintenance</th>
-                    <th>IT Sub.</th>
-                    <th>Other Income</th>
-                    <th>Other Expenses</th>
-                    <th>Profit</th>
-                    <th>Rent Owing</th>
-                    <th>Timestamp</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if records %}
-                    {% for r in records %}
-                        <tr>
-                            <td><code>{{ r.record_id }}</code></td>
-                            <td>{{ r.address }}</td>
-                            <td>{{ r.month }}</td>
-                            <td>${{ "{:,.2f}".format(r.rent_received) }}</td>
-                            <td>{{ r.receiving_partner }}</td>
-                            <td>${{ "{:,.2f}".format(r.maintenance) }}</td>
-                            <td>${{ "{:,.2f}".format(r.it_subscription) }}</td>
-                            <td>${{ "{:,.2f}".format(r.other_income) }}</td>
-                            <td>${{ "{:,.2f}".format(r.other_expenses) }}</td>
-                            <td class="font-bold {% if r.profit >= 0 %}text-success{% else %}text-error{% endif %}">${{ "{:,.2f}".format(r.profit) }}</td>
-                            <td class="{% if r.rent_owing > 0 %}text-error font-bold{% endif %}">${{ "{:,.2f}".format(r.rent_owing) }}</td>
-                            <td><small class="text-muted">{{ r.timestamp }}</small></td>
-                        </tr>
-                    {% endfor %}
-                {% else %}
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
                     <tr>
-                        <td colspan="12" class="text-center text-muted">No records match filter criteria.</td>
+                        <th>Record ID</th>
+                        <th>Address</th>
+                        <th>Month</th>
+                        <th class="num">Rent Received</th>
+                        <th>Receiving Partner</th>
+                        <th class="num">Maintenance</th>
+                        <th class="num">IT Sub.</th>
+                        <th class="num">Other Income</th>
+                        <th class="num">Other Expenses</th>
+                        <th class="num">Profit</th>
+                        <th class="num">Rent Owing</th>
+                        <th>Timestamp</th>
                     </tr>
-                {% endif %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% if records %}
+                        {% for r in records %}
+                            <tr>
+                                <td><code>{{ r.record_id }}</code></td>
+                                <td class="strong">{{ r.address }}</td>
+                                <td>{{ r.month }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.rent_received) }}</td>
+                                <td>{{ r.receiving_partner }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.maintenance) }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.it_subscription) }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.other_income) }}</td>
+                                <td class="num">${{ "{:,.2f}".format(r.other_expenses) }}</td>
+                                <td class="num"><span class="badge {% if r.profit >= 0 %}badge-success{% else %}badge-error{% endif %}">${{ "{:,.2f}".format(r.profit) }}</span></td>
+                                <td class="num">{% if r.rent_owing > 0 %}<span class="badge badge-error">${{ "{:,.2f}".format(r.rent_owing) }}</span>{% else %}<span class="text-muted">${{ "{:,.2f}".format(r.rent_owing) }}</span>{% endif %}</td>
+                                <td><small class="text-muted">{{ r.timestamp }}</small></td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="12" class="empty-state">No records match filter criteria.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <script>
-    // Tab switching logic
+    // Tab switching logic (menu items in the sidebar)
     function openTab(evt, tabName) {
-        var i, tabContent, tabLinks;
+        var i, tabContent, tabLinks, activeLink;
         tabContent = document.getElementsByClassName("tab-content");
         for (i = 0; i < tabContent.length; i++) {
             tabContent[i].style.display = "none";
@@ -249,15 +286,18 @@
         }
         document.getElementById(tabName).style.display = "block";
         if (evt) {
-            evt.currentTarget.className += " active";
+            activeLink = evt.currentTarget;
         } else {
             // activate matching button
-            var buttons = document.getElementsByClassName("tab-link");
-            for (var b = 0; b < buttons.length; b++) {
-                if (buttons[b].getAttribute("onclick").indexOf(tabName) !== -1) {
-                    buttons[b].className += " active";
+            for (i = 0; i < tabLinks.length; i++) {
+                if (tabLinks[i].getAttribute("onclick").indexOf(tabName) !== -1) {
+                    activeLink = tabLinks[i];
                 }
             }
+        }
+        if (activeLink) {
+            activeLink.className += " active";
+            document.getElementById('page-title').textContent = activeLink.getAttribute('data-title');
         }
 
         // Save current tab in URL search params to persist on reload
@@ -293,20 +333,12 @@
         }
         const rentOwing = Math.max(0.0, fixedRent - rentReceived);
         document.getElementById('rent_owing_preview').innerText = '$' + rentOwing.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        if (rentOwing > 0) {
-            document.getElementById('rent_owing_preview').className = 'text-error font-bold';
-        } else {
-            document.getElementById('rent_owing_preview').className = '';
-        }
+        document.getElementById('rent_owing_preview').className = 'calculation-value' + (rentOwing > 0 ? ' text-error' : '');
 
         // Profit calculation
         const profit = rentReceived + otherIncome - maintenance - itSub - otherExpenses;
         document.getElementById('profit_preview').innerText = '$' + profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        if (profit >= 0) {
-            document.getElementById('profit_preview').className = 'text-success font-bold';
-        } else {
-            document.getElementById('profit_preview').className = 'text-error font-bold';
-        }
+        document.getElementById('profit_preview').className = 'calculation-value ' + (profit >= 0 ? 'text-success' : 'text-error');
     }
 
     // Check URL query param to open correct tab on page load

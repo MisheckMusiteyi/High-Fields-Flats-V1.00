@@ -4,50 +4,108 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}High Fields Flats – Rental Tracker{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <header class="navbar">
-        <div class="container navbar-container">
-            <div class="logo">
-                <a href="{{ url_for('index') }}">HIGH FIELDS FLATS</a>
+{% from '_icons.html' import icon %}
+{# Pages like login set auth_layout = true to get the centred layout without the sidebar #}
+{% set app_layout = session.get('email') and not auth_layout %}
+
+{% if app_layout %}
+<div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <a href="{{ url_for('index') }}" class="brand">
+            <span class="brand-mark">HF</span>
+            <span class="brand-text">
+                <span class="brand-name">High Fields Flats</span>
+                <span class="brand-sub">Rental Tracker</span>
+            </span>
+        </a>
+
+        <nav class="sidebar-nav">
+            <p class="nav-label">Menu</p>
+            {% block sidebar_nav %}{% endblock %}
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('logout') }}" class="nav-item">
+                {{ icon('logout') }}
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <!-- Main area -->
+    <div class="main">
+        <header class="topbar">
+            <button type="button" class="icon-btn menu-toggle" id="menu-toggle" aria-label="Open menu">
+                {{ icon('menu') }}
+            </button>
+            <div class="topbar-title">
+                {% block page_header %}{% endblock %}
             </div>
-            <nav class="nav-links">
-                {% if session.get('email') %}
-                    <span class="user-info">
-                        {% if session.get('photo_url') %}
-                            <img src="{{ session.get('photo_url') }}" alt="Profile" class="nav-profile-img">
-                        {% endif %}
-                        <strong>{{ session.get('name') }}</strong> ({{ session.get('role')|capitalize }})
-                    </span>
-                    <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+            <div class="topbar-user">
+                {% if session.get('photo_url') %}
+                    <img src="{{ session.get('photo_url') }}" alt="Profile" class="avatar">
                 {% else %}
-                    <a href="{{ url_for('login_page') }}" class="btn btn-outline">Login</a>
+                    <span class="avatar avatar-initials">{{ (session.get('name') or '?')[:1]|upper }}</span>
                 {% endif %}
-            </nav>
-        </div>
-    </header>
+                <span class="topbar-user-text">
+                    <strong>{{ session.get('name') }}</strong>
+                    <small>{{ session.get('role')|capitalize }}</small>
+                </span>
+            </div>
+        </header>
 
-    <main class="container main-content">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-messages">
-                    {% for category, message in messages %}
-                        <div class="flash-message flash-{{ category }}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
+        <main class="content">
+{% else %}
+<div class="auth-shell">
+    <main class="auth-content">
+{% endif %}
 
-        {% block content %}{% endblock %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+
+{% if app_layout %}
+        </main>
+        <footer class="footer">&copy; 2026 High Fields Flats. All rights reserved.</footer>
+    </div>
+</div>
+
+<script>
+    // Mobile sidebar: open with the menu button, close on backdrop or menu item click
+    (function () {
+        var sidebar = document.getElementById('sidebar');
+        var backdrop = document.getElementById('sidebar-backdrop');
+        function close() { sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
+        document.getElementById('menu-toggle').addEventListener('click', function () {
+            sidebar.classList.add('open');
+            backdrop.classList.add('open');
+        });
+        backdrop.addEventListener('click', close);
+        document.querySelectorAll('.sidebar .tab-link').forEach(function (el) {
+            el.addEventListener('click', close);
+        });
+    })();
+</script>
+{% else %}
     </main>
-
-    <footer class="footer">
-        <div class="container">
-            <p>&copy; 2026 High Fields Flats. All rights reserved.</p>
-        </div>
-    </footer>
+    <footer class="footer">&copy; 2026 High Fields Flats. All rights reserved.</footer>
+</div>
+{% endif %}
 </body>
 </html>
